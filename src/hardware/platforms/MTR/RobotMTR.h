@@ -169,12 +169,17 @@ class RobotMTR : public Robot {
        -160.0 * M_PI / 180.0,    -30.0 * M_PI / 180.0    // θ₂ ∈ [−160°, −30°]
     };
 
-    // Calibration pose (angles at the mechanical stops reached under + torque).
-    // qCalibration[0] = θ₁ at stop,  qCalibration[1] = θ₂ at stop.
-    // *** Must be confirmed on the physical hardware before first power-on. ***
+    // NOTE: Step 4 — verify qCalibration against the physical robot before the
+    //   first calibrated run. CalibState drives both joints with a small positive
+    //   torque until motion stops, then calls applyCalibration() which sets these
+    //   angles as the known position at the hard stops. If the values below are
+    //   wrong the forward kinematics and all end-effector force control will be
+    //   incorrect. Measure the actual stop angles with a protractor or encoder
+    //   readout and update here (degrees are converted to radians at construction).
+    //   qCalibration[0] = θ₁ at stop,  qCalibration[1] = θ₂ at stop.
     VM3 qCalibration = {
-         100.0 * M_PI / 180.0,   // θ₁_max stop
-         -30.0 * M_PI / 180.0,   // θ₂_max stop (least-flexed position)
+         100.0 * M_PI / 180.0,   // θ₁_max stop — VERIFY on hardware
+         -30.0 * M_PI / 180.0,   // θ₂_max stop (least-flexed position) — VERIFY on hardware
           0.0
     };
 

@@ -20,7 +20,10 @@ RobotMTR::RobotMTR(const string &robot_name, const string &yaml_config_file)
     // Load YAML overrides before joints are constructed so limits are correct.
     initialiseFromYAML(yaml_config_file);
 
-    // Two Kinco FD123 drives — CAN node IDs 1 (proximal) and 2 (distal).
+    // NOTE: Step 3 — both drives were found at CAN node 4 (candump showed two
+    //   identical 704 heartbeat frames). Before running two motors, use CME2 to
+    //   change the distal drive's node ID to 2. CopleyDrive(4) = proximal (q1),
+    //   CopleyDrive(2) = distal (q2). Verify with candump: expect 704 and 702.
     addJoint(new JointMT(0,
                          qLimits[0], qLimits[1],          // θ₁ min / max
                          (short int)qSigns[0],
