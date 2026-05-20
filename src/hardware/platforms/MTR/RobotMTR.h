@@ -69,10 +69,12 @@
 #ifndef ROBOTMTR_H
 #define ROBOTMTR_H
 
-#include "JointMT.h"   // Copley-drive-backed joint (same drive hardware as M3)
-#include "Keyboard.h"  // Keyboard input
-#include "Robot.h"     // CORC Robot base class
-#include "CopleyDrive.h" // Copley drive interface (for direct drive control in JointMT)
+#include "JointMT.h"        // Copley-drive-backed joint
+#include "Keyboard.h"       // Keyboard input (development / fallback)
+#include "RotaryEncoder.h"  // KY-040 rotary encoder with push button
+#include "LCD1602.h"        // 16×2 LCD via PCF8574 I2C backpack
+#include "Robot.h"          // CORC Robot base class
+#include "CopleyDrive.h"    // Copley drive interface
 
 typedef Eigen::Vector3d VM3;   //!< 3-vector (shared alias with M3 state machine)
 typedef Eigen::VectorXd VX;    //!< Dynamic-size vector (for FLNLHelper / logging)
@@ -84,7 +86,9 @@ class RobotMTR : public Robot {
              const std::string &yaml_config_file = "");
     ~RobotMTR();
 
-    Keyboard *keyboard;   //!< Keyboard input device
+    Keyboard      *keyboard;  //!< Keyboard input (fallback / development)
+    RotaryEncoder *encoder;   //!< KY-040 rotary encoder (CLK=P8_15, DT=P8_17, SW=P8_18)
+    LCD1602       *lcd;       //!< 16×2 I2C LCD (SDA=P9_20, SCL=P9_19, addr=0x27)
 
     // ── Drive mode initialisation ─────────────────────────────────────────────
     bool initTorqueControl()   override;

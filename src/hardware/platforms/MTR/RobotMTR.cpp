@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <iomanip>
 #include <iostream>
 
@@ -27,14 +28,21 @@ RobotMTR::RobotMTR(const string &robot_name, const string &yaml_config_file)
                          -tauMax, tauMax,
                          {0,19552,0.0,1.0}, new CopleyDrive(4), "q1"));
 
-    // addJoint(new JointMT(1,
-    //                      qLimits[2], qLimits[3],          // θ₂ min / max
-    //                      (short int)qSigns[1],
-    //                      -dqMax, dqMax,
-    //                      -tauMax, tauMax,
-    //                      {0,1,0.0,1.0}, new CopleyDrive(2), "q2"));
+    addJoint(new JointMT(1,
+                         qLimits[2], qLimits[3],          // θ₂ min / max
+                         (short int)qSigns[1],
+                         -dqMax, dqMax,
+                         -tauMax, tauMax,
+                         {0,19552,0.0,1.0}, new CopleyDrive(2), "q2"));
 
     addInput(keyboard = new Keyboard());
+
+    // KY-040 rotary encoder: CLK=P8_15, DT=P8_17, SW=P8_16
+    addInput(encoder = new RotaryEncoder(8, 15, 8, 17, 8, 16));
+
+    // 16×2 I2C LCD: PCF8574 at 0x27 on /dev/i2c-1
+    lcd = new LCD1602(0x27, 1);
+    lcd->init();
 
     last_update_time = chrono::duration_cast<chrono::microseconds>(
         chrono::steady_clock::now().time_since_epoch()).count() / 1e6;
@@ -44,6 +52,8 @@ RobotMTR::~RobotMTR() {
     for (auto p : joints) delete p;
     joints.clear();
     delete keyboard;
+    delete encoder;
+    delete lcd;
     inputs.clear();
 }
 
@@ -143,7 +153,7 @@ bool RobotMTR::initialiseNetwork() {
 }
 
 bool RobotMTR::initialiseInputs() {
-    return true;   // keyboard is registered via addInput() in constructor
+    return true;   // encoder is registered via addInput() in constructor
 }
 
 

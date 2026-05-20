@@ -9,7 +9,7 @@ project(CORC C CXX)
 ################################## USER FLAGS ##################################
 
 ### Select the application by setting the state machine app.cmake to use
-include(/home/mtr2026/Documents/mtrgit/BiManualTherapyBot/src/MTRobotMachine/app.cmake)
+include(../MTRobotMachine/app.cmake)
 #include(src/apps/ExoTestMachine/app.cmake)
 #include(src/apps/FITHVExoDemoMachine/app.cmake)
 #include(src/apps/M1DemoMachine/app.cmake)
@@ -33,6 +33,9 @@ set(CORC_LOGGING_LEVEL DEBUG)
 
 ## CORC internal cmake logic
 include(corc.cmake)
+
+## LCD1602 background thread requires pthread
+target_link_libraries(${APP_NAME} pthread)
 
 ## Copy MTR_params.yaml to build/config/ for cross-compile builds where
 ## BASE_DIRECTORY="." and the binary looks for config/ relative to itself.
