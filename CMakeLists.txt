@@ -9,7 +9,8 @@ project(CORC C CXX)
 ################################## USER FLAGS ##################################
 
 ### Select the application by setting the state machine app.cmake to use
-include(src/apps/ExoTestMachine/app.cmake)
+include(/home/mtr2026/Documents/mtrgit/BiManualTherapyBot/src/MTRobotMachine/app.cmake)
+#include(src/apps/ExoTestMachine/app.cmake)
 #include(src/apps/FITHVExoDemoMachine/app.cmake)
 #include(src/apps/M1DemoMachine/app.cmake)
 #include(src/apps/M1DemoMachineROS/app.cmake)
@@ -22,7 +23,7 @@ include(src/apps/ExoTestMachine/app.cmake)
 #include(../myStateMachineApp/app.cmake) ## example only, need to be defined
 
 ## Comment to use actual hardware, uncomment for a nor robot (virtual) app
-set(NO_ROBOT ON)
+#set(NO_ROBOT ON)
 
 ## Select desired logging level (Options: TRACE, DEBUG, INFO, WARN, ERROR, CRITICAL, OFF)
 ## INFO is the recommended level in normal operation
@@ -32,3 +33,16 @@ set(CORC_LOGGING_LEVEL DEBUG)
 
 ## CORC internal cmake logic
 include(corc.cmake)
+
+## Copy MTR_params.yaml to build/config/ for cross-compile builds where
+## BASE_DIRECTORY="." and the binary looks for config/ relative to itself.
+## (For native builds BASE_DIRECTORY=CMAKE_SOURCE_DIR and the file is found
+## directly in the source tree at config/MTR_params.yaml.)
+if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/config/MTR_params.yaml")
+    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/config")
+    configure_file(
+        "${CMAKE_CURRENT_LIST_DIR}/config/MTR_params.yaml"
+        "${CMAKE_BINARY_DIR}/config/MTR_params.yaml"
+        COPYONLY
+    )
+endif()

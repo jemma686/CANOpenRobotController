@@ -7,9 +7,10 @@
 #include <iostream>
 
 CopleyDrive::CopleyDrive(int NodeID) : Drive::Drive(NodeID) {
-    OD_Addresses[DIGITAL_IN] = {0x219A, 0x00}; //Use INPUT PIN STATE instead of standard DI. Not tested.
-    OD_Addresses[DIGITAL_OUT] = {0X2194, 0x00}; //Not tested. Need dedicated configuration before use. See Copley doc.
-    RPDO_MappedObjects[1] = {CONTROL_WORD}; //No DO mapping on Copley drive
+    OD_Addresses[DIGITAL_IN] = {0x219A, 0x00};
+    OD_Addresses[DIGITAL_OUT] = {0X2194, 0x00};
+    RPDO_MappedObjects[1] = {CONTROL_WORD};   // no DIGITAL_OUT mapping on Copley
+    TPDO_MappedObjects[4] = {};               // 0x219A is not PDO-mappable on Copley drives
 
 }
 CopleyDrive::~CopleyDrive() {

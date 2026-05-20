@@ -1,0 +1,78 @@
+#   NOTE: This should be in src/config/ — but we want it to be editable 
+#   without rebuilding the whole project, so it lives here and is copied at build time.
+# 
+#   MTRobot parameter file
+#
+#   2-DOF parallel-linkage tabletop therapy robot.
+#   This file is the canonical source — it lives outside the CORC submodule.
+#   CMakeLists.txt copies it to build/config/ at configure time so that
+#   Robot::initialiseFromYAML() can find it during NO_ROBOT development builds.
+#
+#   Arm geometry sourced from System Modelling/torquecalc (1).m.
+#   Joint limits sourced from System Modelling/ROM (1).m and accelCalc (1).m.
+#
+#   Values marked ESTIMATE need to be replaced after hardware identification.
+#
+#   To load this file, construct RobotMTR with:
+#       RobotMTR("RobotMTR", "MTR_params.yaml")
+#
+#
+#   Diagram (top view, horizontal plane)
+#
+#   Origin (shoulder)
+#       ●──────────────● θ₁  (proximal joint, Drive 1, CAN ID 1)
+#                       └─────────────── θ₂  (elbow, Drive 2, CAN ID 2)
+#                                        └── ● Handle (end-effector)
+#
+#   θ₁ ∈ [−30°, 100°]   measured from the +X axis
+#   θ₂ ∈ [−160°, −30°]  measured from link-1 direction (always inward/negative)
+#
+
+RobotMTR:
+
+  # ── Geometry ─────────────────────────────────────────────────────────────────
+  # Source: System Modelling/torquecalc (1).m
+  L1: 0.44            # Proximal link length [m]  (shoulder → elbow pivot)
+  L2: 0.32            # Distal   link length [m]  (elbow pivot → handle)
+
+  # Parallelogram linkage transmission ratio for joint 2.
+  # parallel_ratio = (motor rotation) / (geometric elbow angle change).
+  # 1.0 means the motor encoder directly reads the geometric elbow angle.
+  # Source: System Modelling/accelCalc (1).m
+  parallel_ratio: 1.0
+
+  # ── Drive envelope ────────────────────────────────────────────────────────────
+  dqMax:  360         # Max joint speed  [deg/s]  (hard-clamped ≤ 360 in code)
+  tauMax:  42         # Max joint torque [N·m]    (hard-clamped ≤ 80 in code)
+
+  # ── Per-joint drive parameters ────────────────────────────────────────────────
+  # Index 0 = proximal (shoulder),  index 1 = distal (elbow)
+  iPeakDrives:  [42.0, 42.0]     # Kinco FD123 peak current [A]
+  motorCstt:    [0.132, 0.132]   # Motor torque constant    [N·m/A]
+  qSigns:       [1, 1]           # +1 = positive torque → increasing joint angle
+
+  # ── Joint limits ──────────────────────────────────────────────────────────────
+  # Format: [θ1_min, θ1_max, θ2_min, θ2_max]  in degrees
+  # Source: System Modelling/ROM (1).m and accelCalc (1).m
+  qLimits: [-30, 100, -160, -30]
+
+  # ── Calibration ───────────────────────────────────────────────────────────────
+  # The CalibState drives both joints with a fixed positive torque until each
+  # joint reaches its mechanical hard stop and ceases moving.  qCalibration
+  # holds the KNOWN angles at those stops so the encoder offsets can be zeroed.
+  #
+  # Default assumption: positive torque → angle increases → stop at θ_max.
+  #
+  # *** These values MUST be verified on the physical hardware. ***
+  # Verification procedure:
+  #   1. Manually drive the arm to what you believe is the max-angle hard stop.
+  #   2. Read the raw encoder angle from the Kinco drive software.
+  #   3. Replace the values below with those measured angles.
+  qCalibration: [100, -30]    # [θ₁_stop_deg, θ₂_stop_deg]
+
+  # ── Friction model  (ESTIMATE — replace after system identification) ──────────
+  # Applied in setEndEffForceWithCompensation() as:
+  #   τ_fric = frictionCoul × sign(dq) + frictionVis × dq
+  # Both terms are gated by a 0.03 rad/s dead-band to avoid chatter at rest.
+  frictionVis:  [0.2, 0.2]    # Viscous  coefficient [N·m·s/rad]
+  frictionCoul: [0.5, 0.5]    # Coulomb  coefficient [N·m]
