@@ -87,7 +87,7 @@ class RobotMTR : public Robot {
     ~RobotMTR();
 
     Keyboard      *keyboard;  //!< Keyboard input (fallback / development)
-    RotaryEncoder *encoder;   //!< KY-040 rotary encoder (CLK=P8_15, DT=P8_17, SW=P8_18)
+    RotaryEncoder *encoder;   //!< KY-040 rotary encoder (S1/CLK=P8_11, S2/DT=P8_12, Key/SW=P8_15)
     LCD1602       *lcd;       //!< 16×2 I2C LCD (SDA=P9_20, SCL=P9_19, addr=0x27)
 
     // ── Drive mode initialisation ─────────────────────────────────────────────

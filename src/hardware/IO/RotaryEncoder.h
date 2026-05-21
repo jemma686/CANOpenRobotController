@@ -2,11 +2,11 @@
  * \file RotaryEncoder.h
  * \brief KY-040 rotary encoder with push button, read via BeagleBone GPIO (iobb).
  *
- * Wiring (recommended BeagleBone header pins):
+ * Wiring (BeagleBone header pins):
  *   VCC → P9_3 (3.3 V)   GND → P9_1
- *   CLK → P8_15  (port 8, pin 15)
- *   DT  → P8_17  (port 8, pin 17)
- *   SW  → P8_18  (port 8, pin 18)
+ *   S1 (CLK) → P8_11  (GPIO_45)
+ *   S2 (DT)  → P8_12  (GPIO_44)
+ *   Key (SW) → P8_15  (GPIO1_47)
  *
  * Usage — call updateInput() every control cycle (via Robot::updateRobot).
  *   getRotation()   → -1 (CCW), 0 (no change), +1 (CW)  — valid for one cycle

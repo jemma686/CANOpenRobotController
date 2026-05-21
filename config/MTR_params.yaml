@@ -1,6 +1,3 @@
-#   NOTE: This should be in src/config/ — but we want it to be editable 
-#   without rebuilding the whole project, so it lives here and is copied at build time.
-# 
 #   MTRobot parameter file
 #
 #   2-DOF parallel-linkage tabletop therapy robot.
@@ -32,8 +29,8 @@ RobotMTR:
 
   # ── Geometry ─────────────────────────────────────────────────────────────────
   # Source: System Modelling/torquecalc (1).m
-  L1: 0.44            # Proximal link length [m]  (shoulder → elbow pivot)
-  L2: 0.32            # Distal   link length [m]  (elbow pivot → handle)
+  L1: 0.43          # Proximal link length [m]  (shoulder → elbow pivot)
+  L2: 0.37           # Distal   link length [m]  (elbow pivot → handle)
 
   # Parallelogram linkage transmission ratio for joint 2.
   # parallel_ratio = (motor rotation) / (geometric elbow angle change).
@@ -42,14 +39,14 @@ RobotMTR:
   parallel_ratio: 1.0
 
   # ── Drive envelope ────────────────────────────────────────────────────────────
-  dqMax:  360         # Max joint speed  [deg/s]  (hard-clamped ≤ 360 in code)
-  tauMax:  42         # Max joint torque [N·m]    (hard-clamped ≤ 80 in code)
+  dqMax:  20         # Max joint speed  [deg/s]  (hard-clamped ≤ 360 in code)
+  tauMax:  10         # Max joint torque [N·m]    (hard-clamped ≤ 80 in code)
 
   # ── Per-joint drive parameters ────────────────────────────────────────────────
   # Index 0 = proximal (shoulder),  index 1 = distal (elbow)
   iPeakDrives:  [42.0, 42.0]     # Kinco FD123 peak current [A]
   motorCstt:    [0.132, 0.132]   # Motor torque constant    [N·m/A]
-  qSigns:       [1, 1]           # +1 = positive torque → increasing joint angle
+  qSigns:       [1, -1]           # +1 = positive torque → increasing joint angle
 
   # ── Joint limits ──────────────────────────────────────────────────────────────
   # Format: [θ1_min, θ1_max, θ2_min, θ2_max]  in degrees

@@ -1,10 +1,12 @@
 cmake_minimum_required(VERSION 3.5)
 project(CORC C CXX)
 
-#To cross-compile for Arm (BeagleBone) use the armhf toolchain:
-# cmake -DCMAKE_TOOLCHAIN_FILE=../armhf.cmake ..
-# For aarch64 (e.g. Jetson):
-# cmake -DCMAKE_TOOLCHAIN_FILE=../aarch64.cmake ..
+# Build for BeagleBone (ARM):
+#   mkdir -p build && cd build
+#   cmake -DCMAKE_TOOLCHAIN_FILE=../armhf.cmake ..
+#   make -j$(nproc)
+#   cd .. && ./script/uploadBB.sh
+# For aarch64 (e.g. Jetson): use aarch64.cmake instead of armhf.cmake
 
 ################################## USER FLAGS ##################################
 

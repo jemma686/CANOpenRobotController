@@ -40,11 +40,11 @@ RobotMTR::RobotMTR(const string &robot_name, const string &yaml_config_file)
 
     addInput(keyboard = new Keyboard());
 
-    // KY-040 rotary encoder: CLK=P8_15, DT=P8_17, SW=P8_16
-    addInput(encoder = new RotaryEncoder(8, 15, 8, 17, 8, 16));
+    // KY-040 rotary encoder: S1(CLK)=P8_11, S2(DT)=P8_12, Key(SW)=P8_15
+    addInput(encoder = new RotaryEncoder(8, 11, 8, 12, 8, 15));
 
-    // 16×2 I2C LCD: PCF8574 at 0x27 on /dev/i2c-1
-    lcd = new LCD1602(0x27, 1);
+    // 16×2 I2C LCD: PCF8574 at 0x27 on /dev/i2c-2
+    lcd = new LCD1602(0x27, 2);
     lcd->init();
 
     last_update_time = chrono::duration_cast<chrono::microseconds>(

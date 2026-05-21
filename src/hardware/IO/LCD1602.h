@@ -10,7 +10,7 @@
  *   P4-P7 = D4-D7   (4-bit data bus, high nibble sent first)
  *
  * Typical I2C address: 0x27 (A0=A1=A2=1) or 0x3F (A0=A1=A2=0).
- * SDA → P9_20, SCL → P9_19 on BeagleBone Black (/dev/i2c-1 = I2C2).
+ * Wiring: VCC → P9_7 (5V), GND → P9_2, SDA → P9_20, SCL → P9_19 (/dev/i2c-2 on this BBB).
  * Do NOT use P9_24/P9_26 — those are shared with the CAN1 bus.
  *
  * Threading model
@@ -44,7 +44,7 @@
 
 class LCD1602 : public I2CDevice {
    public:
-    LCD1602(unsigned char addr = 0x27, int bus = 1);
+    LCD1602(unsigned char addr = 0x27, int bus = 2);
     ~LCD1602();
 
     /** Hardware init + start background flush thread. Call once after construction. */
