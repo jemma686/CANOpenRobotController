@@ -186,7 +186,8 @@ class RobotMTR : public Robot {
     bool calibrated = false;
 
     // ── Safety envelope ───────────────────────────────────────────────────────
-    double maxEndEffVel = 2.0;   //!< Max end-effector speed [m/s]
+    double maxEndEffVel   = 2.0;    //!< Max end-effector speed         [m/s]
+    double maxEndEffForce = 20.0;   //!< Max end-effector force (XY)    [N]  — patient contact limit
 
     // ── Cached end-effector state (VX for FLNLHelper compatibility) ──────────
     VX endEffPositions   = VX::Zero(3);

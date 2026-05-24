@@ -73,3 +73,12 @@ RobotMTR:
   # Both terms are gated by a 0.03 rad/s dead-band to avoid chatter at rest.
   frictionVis:  [0.2, 0.2]    # Viscous  coefficient [N·m·s/rad]
   frictionCoul: [0.5, 0.5]    # Coulomb  coefficient [N·m]
+
+  # ── Safety envelope ──────────────────────────────────────────────────────────
+  # maxEndEffForce: maximum XY Cartesian force magnitude delivered to the patient [N].
+  # The Cartesian force is saturated before the Jᵀ mapping so the force direction
+  # is preserved — only the magnitude is capped.
+  # With tauMax = 10 N·m and L1+L2 = 0.80 m the drives can produce ~12–27 N
+  # depending on configuration, so 20 N provides a meaningful patient-safety margin.
+  # Verify and adjust for the intended patient population before clinical use.
+  maxEndEffForce: 20.0        # Max end-effector contact force (XY) [N]

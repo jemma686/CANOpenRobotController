@@ -28,7 +28,7 @@ typedef struct JointDrivePairs {
 } JointDrivePairs;
 
 /**
- * \brief M3 actuated joints, using Kinoc drives.
+ * \brief MTR actuated joints, using Copley drives.
  *
  */
 class JointMT : public Joint {
@@ -57,14 +57,12 @@ class JointMT : public Joint {
 /*
 This is Calibration below, need to adjust during calibration (jointangle in Radians)
  double JointDrivePairs jdp = {0, 1, 0.0, 1.0} = {encoder count at posA, encoder count at posB, joint angle at posA, joint angle at posB}
-
-
 */
    public:
     JointMT(int jointID, double q_min, double q_max, short int sign_ = 1, double dq_min = 0, double dq_max = 0, double tau_min = 0, double tau_max = 0, JointDrivePairs jdp = {0, 1, 0.0, 1.0}, Drive *drive = NULL, const std::string& name="");
     ~JointMT();
     /**
-     * \brief Cehck if current velocity and torque are within limits.
+     * \brief Check if current velocity and torque are within limits.
      *
      * \return OUTSIDE_LIMITS if outside the limits (!), SUCCESS otherwise
      */

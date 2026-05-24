@@ -1,5 +1,6 @@
 #include "RobotMTR.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -88,6 +89,9 @@ bool RobotMTR::loadParametersFromYAML(YAML::Node params) {
     // Drive envelope (hard-constrained for safety, same as M3)
     if (p["dqMax"])  dqMax  = min(max(0., p["dqMax"].as<double>()), 360.) * M_PI / 180.;
     if (p["tauMax"]) tauMax = min(max(0., p["tauMax"].as<double>()), 80.);
+
+    // Safety envelope
+    if (p["maxEndEffForce"]) maxEndEffForce = max(0., p["maxEndEffForce"].as<double>());
 
 
     fillParam(p["qSigns"],       qSigns);
@@ -319,6 +323,14 @@ void RobotMTR::updateRobot() {
 
 setMovementReturnCode_t RobotMTR::safetyCheck() {
     if (calibrated) {
+        for (unsigned int i = 0; i < joints.size(); i++) {
+            double q = joints[i]->getPosition();
+            if (q < qLimits[2*i] || q > qLimits[2*i+1]) {
+                spdlog::error("MTR: Joint {} position limit exceeded ({:.1f} deg)!",
+                              i, q * 180.0 / M_PI);
+                return OUTSIDE_LIMITS;
+            }
+        }
         if (getEndEffVelocity().norm() > maxEndEffVel) {
             spdlog::error("MTR: End-effector velocity limit exceeded ({:.2f} m/s)!",
                           getEndEffVelocity().norm());
@@ -360,19 +372,55 @@ setMovementReturnCode_t RobotMTR::setJointVelocity(VM3 dq) {
 
 // τ = Jᵀ · F  +  τ_friction
 // Gravity is zero (horizontal plane) — no τ_gravity term.
-// τ[2] is computed (via the Z identity row in J) but never sent to hardware.
+// The robot has only 2 physical drives; setJointTorque passes only tau[0] and
+// tau[1] to hardware.  tau[2] = J(2,:)ᵀ · F = F.z() (via the Z identity row)
+// and is discarded there — this is by design so F.z() from the soft planar
+// constraint requires no special-casing here.
+//
+// Safety pipeline (in order):
+//   1. Saturate XY Cartesian force magnitude before Jᵀ — scales F uniformly so
+//      the impedance force direction is preserved and the patient contact force
+//      is bounded.  Saturating after Jᵀ (per-joint) would distort the force
+//      direction in a configuration-dependent way.
+//   2. Map to joint torques via Jᵀ — never requires Jacobian inversion, always safe.
+//   3. Add per-joint friction compensation in joint space.
+//   4. Clamp each joint torque to ±tauMax — final guard against friction compensation
+//      pushing the output above the drive limit.
 setMovementReturnCode_t
 RobotMTR::setEndEffForceWithCompensation(VM3 F, bool friction_comp) {
     if (!calibrated) return NOT_CALIBRATED;
 
-    VM3 tau = J().transpose() * F;   // 3×3 · 3×1 → 3×1; tau[2] discarded below
+    // ── 1. Cartesian force saturation ─────────────────────────────────────────
+    // Saturate XY only — Z is discarded by hardware and should not reduce the
+    // patient-facing force budget.
+    double fNorm = std::sqrt(F.x()*F.x() + F.y()*F.y());
+    if (fNorm > maxEndEffForce) {
+        double scale = maxEndEffForce / fNorm;
+        F.x() *= scale;
+        F.y() *= scale;
+        spdlog::warn("MTR: Cartesian force saturated from {:.1f} N to {:.1f} N.",
+                     fNorm, maxEndEffForce);
+    }
 
+    // ── 2. Cartesian → joint torques via Jᵀ ──────────────────────────────────
+    VM3 tau = J().transpose() * F;   // tau[2] = F.z(); discarded in setJointTorque
+
+    // ── 3. Friction compensation ──────────────────────────────────────────────
     if (friction_comp) {
         const double threshold = 0.03;   // dead-band [rad/s]
         for (unsigned int i = 0; i < joints.size(); i++) {
             double dq = ((JointMT *)joints[i])->getVelocity();
-            if (abs(dq) > threshold)
+            if (std::abs(dq) > threshold)
                 tau(i) += frictionCoul[i] * sign(dq) + frictionVis[i] * dq;
+        }
+    }
+
+    // ── 4. Joint torque saturation ────────────────────────────────────────────
+    for (unsigned int i = 0; i < joints.size() && i < 2; i++) {
+        if (std::abs(tau(i)) > tauMax) {
+            spdlog::warn("MTR: Joint {} torque saturated from {:.2f} to ±{:.2f} N·m.",
+                         i, tau(i), tauMax);
+            tau(i) = std::max(-tauMax, std::min(tauMax, tau(i)));
         }
     }
 
