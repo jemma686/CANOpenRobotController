@@ -60,6 +60,7 @@ class CopleyDrive : public Drive {
          * \return false if not
          */
     bool initVelControl(motorProfile velControlMotorProfile);
+    bool initVelControl();   // no-profile overload — sets profile velocity mode (mode 3)
 
     /**
          * Sets the drive to Torque control with default parameters (through SDO messages)

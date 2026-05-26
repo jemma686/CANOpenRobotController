@@ -39,13 +39,13 @@ RobotMTR:
   parallel_ratio: 1.0
 
   # ── Drive envelope ────────────────────────────────────────────────────────────
-  dqMax:  20         # Max joint speed  [deg/s]  (hard-clamped ≤ 360 in code)
-  tauMax:  10         # Max joint torque [N·m]    (hard-clamped ≤ 80 in code)
+  dqMax:  700        # Max joint speed  [deg/s]  — increased for free-shaft bench test (restore to ~30 when arm attached)
+  tauMax:  1000         # Max joint torque [N·m]    (hard-clamped ≤ 80 in code)
 
   # ── Per-joint drive parameters ────────────────────────────────────────────────
   # Index 0 = proximal (shoulder),  index 1 = distal (elbow)
-  iPeakDrives:  [42.0, 42.0]     # Kinco FD123 peak current [A]
-  motorCstt:    [0.132, 0.132]   # Motor torque constant    [N·m/A]
+  iPeakDrives:  [6.0, 6.0]       # ACK-055-06 peak current [A]
+  motorCstt:    [0.114, 0.114]   # Maxon EC60 Kt [N·m/A]
   qSigns:       [1, -1]           # +1 = positive torque → increasing joint angle
 
   # ── Joint limits ──────────────────────────────────────────────────────────────

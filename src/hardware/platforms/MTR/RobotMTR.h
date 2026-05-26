@@ -76,6 +76,7 @@
 #include "Robot.h"          // CORC Robot base class
 #include "CopleyDrive.h"    // Copley drive interface
 
+typedef Eigen::Vector2d VM2;   //!< 2-vector (shared alias with M2 state machine)
 typedef Eigen::Vector3d VM3;   //!< 3-vector (shared alias with M3 state machine)
 typedef Eigen::VectorXd VX;    //!< Dynamic-size vector (for FLNLHelper / logging)
 
@@ -150,12 +151,16 @@ class RobotMTR : public Robot {
     double parallel_ratio = 1.0;    //!< Joint-2 parallelogram transmission ratio
 
     // Drive envelope
-    double dqMax  = 360.0 * M_PI / 180.0;   //!< Max joint speed  [rad/s]
+    //double dqMax  = 360.0 * M_PI / 180.0;   //!< Max joint speed  [rad/s]
+    double dqMax  = 360.0 *10 * M_PI / 180.0;
     double tauMax =  42.0;                   //!< Max joint torque [N·m]
 
     // Per-joint drive parameters (index 0 = proximal, index 1 = distal)
+    // NOTE: Move these to the JointMT bc defined for each joint instead
     std::vector<double> iPeakDrives  = { 42.0,  42.0};   //!< Peak drive current [A]
     std::vector<double> motorCstt    = {0.132, 0.132};   //!< Torque constant    [N·m/A]
+
+    // NOTE: qSigns stay here
     std::vector<double> qSigns       = {  1.0,   1.0};   //!< Sign correction (CW/CCW)
 
     // Friction model — tune via identification on real hardware

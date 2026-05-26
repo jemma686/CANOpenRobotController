@@ -30,14 +30,16 @@ RobotMTR::RobotMTR(const string &robot_name, const string &yaml_config_file)
                          (short int)qSigns[0],
                          -dqMax, dqMax,
                          -tauMax, tauMax,
-                         {0,19552,0.0,1.0}, new CopleyDrive(4), "q1"));
+                         iPeakDrives[0], motorCstt[0],
+                         new CopleyDrive(2), "q1"));
 
     addJoint(new JointMT(1,
                          qLimits[2], qLimits[3],          // θ₂ min / max
                          (short int)qSigns[1],
                          -dqMax, dqMax,
                          -tauMax, tauMax,
-                         {0,19552,0.0,1.0}, new CopleyDrive(2), "q2"));
+                         iPeakDrives[1], motorCstt[1],
+                         new CopleyDrive(4), "q2"));
 
     addInput(keyboard = new Keyboard());
 
@@ -323,6 +325,7 @@ void RobotMTR::updateRobot() {
 
 setMovementReturnCode_t RobotMTR::safetyCheck() {
     if (calibrated) {
+        // NOTEL: double check the implemented safety, maybe need extra for joint position limits when end effector moving (coordinated joint limits)
         for (unsigned int i = 0; i < joints.size(); i++) {
             double q = joints[i]->getPosition();
             if (q < qLimits[2*i] || q > qLimits[2*i+1]) {

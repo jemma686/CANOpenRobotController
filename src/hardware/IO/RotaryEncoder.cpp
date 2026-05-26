@@ -44,38 +44,36 @@ void RotaryEncoder::updateInput() {
     lastClk = clk;
 
     // ── Button debounce ───────────────────────────────────────────────────────
-    // Require debounceCount consecutive identical raw readings before the
-    // debounced state changes.  This rejects contact bounce (< 10 ms at 1 kHz).
-    bool raw = is_low(sw_port, sw_pin);   // active LOW — true when pressed
-    if (raw == rawLast) {
-        if (debounceTimer < debounceCount) {
-            debounceTimer++;
-            if (debounceTimer == debounceCount)
-                debouncedState = raw;
-        }
-    } else {
-        rawLast       = raw;
-        debounceTimer = 0;
-    }
+    // TODO: re-enable when SW wire is reconnected
+    // bool raw = is_low(sw_port, sw_pin);
+    // if (raw == rawLast) {
+    //     if (debounceTimer < debounceCount) {
+    //         debounceTimer++;
+    //         if (debounceTimer == debounceCount)
+    //             debouncedState = raw;
+    //     }
+    // } else {
+    //     rawLast       = raw;
+    //     debounceTimer = 0;
+    // }
 
     // ── Long-press / short-press detection (debounced signal) ─────────────────
-    bool pressed = debouncedState;
-    auto now     = steady_clock::now();
-
-    if (pressed && !buttonDown) {
-        buttonDown     = true;
-        longFired      = false;
-        buttonDownTime = now;
-    } else if (pressed && buttonDown && !longFired) {
-        double held = duration_cast<microseconds>(now - buttonDownTime).count() / 1e6;
-        if (held >= longPressThreshold) {
-            longPressEvent = true;
-            longFired      = true;
-        }
-    } else if (!pressed && buttonDown) {
-        if (!longFired)
-            pressEvent = true;
-        buttonDown = false;
-    }
+    // bool pressed = debouncedState;
+    // auto now     = steady_clock::now();
+    // if (pressed && !buttonDown) {
+    //     buttonDown     = true;
+    //     longFired      = false;
+    //     buttonDownTime = now;
+    // } else if (pressed && buttonDown && !longFired) {
+    //     double held = duration_cast<microseconds>(now - buttonDownTime).count() / 1e6;
+    //     if (held >= longPressThreshold) {
+    //         longPressEvent = true;
+    //         longFired      = true;
+    //     }
+    // } else if (!pressed && buttonDown) {
+    //     if (!longFired)
+    //         pressEvent = true;
+    //     buttonDown = false;
+    // }
 #endif
 }

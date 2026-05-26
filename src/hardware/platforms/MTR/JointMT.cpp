@@ -1,15 +1,15 @@
 #include "JointMT.h"
 
 
-JointMT::JointMT(int jointID, double q_min, double q_max, short int sign_, double dq_min, double dq_max, double tau_min, double tau_max, JointDrivePairs jdp, Drive *drive, const std::string& name) :   Joint(jointID, q_min, q_max, drive, name),
+JointMT::JointMT(int jointID, double q_min, double q_max, short int sign_, double dq_min, double dq_max, double tau_min, double tau_max, double ipeak, double motor_kt, Drive *drive, const std::string& name) :   Joint(jointID, q_min, q_max, drive, name),
                                                                                                                                                                 sign(sign_),
                                                                                                                                                                 qMin(q_min), qMax(q_max),
                                                                                                                                                                 dqMin(dq_min), dqMax(dq_max),
-                                                                                                                                                                tauMin(tau_min), tauMax(tau_max)
+                                                                                                                                                                tauMin(tau_min), tauMax(tau_max),
+                                                                                                                                                                Ipeak(ipeak),
+                                                                                                                                                                motorTorqueConstant(motor_kt)
                                                                                                                                                                 {
-                                                                                                                                                                    JDSlope = (double)(jdp.drivePosB - jdp.drivePosA) / (jdp.jointPosB - jdp.jointPosA);
-                                                                                                                                                                    JDIntercept = jdp.drivePosA - JDSlope * jdp.jointPosA;
-                                                                                                                                                                    spdlog::debug("MY JOINT ID: {} ({}), JPSlope={:,4f}, JDIntercept={:,4f}", this->id, name, JDSlope, JDIntercept);
+                                                                                                                                                                    spdlog::debug("MY JOINT ID: {} ({})", this->id, name);
                                                                                                                                                                 }
 
 JointMT::~JointMT() {

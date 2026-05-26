@@ -41,19 +41,42 @@ bool CopleyDrive::initPosControl(motorProfile posControlMotorProfile) {
 
 bool CopleyDrive::initVelControl(motorProfile velControlMotorProfile) {
     spdlog::debug("NodeID {} Initialising Velocity Control", NodeID);
-    /**
-     * \todo create velControlMOTORPROFILE and test on exo
-     * \todo Tune velocity loop gain index 0x2381 to optimize V control
-     *
-    */
     sendSDOMessages(generateVelControlConfigSDO(velControlMotorProfile));
+    return true;
+}
+
+bool CopleyDrive::initVelControl() {
+    spdlog::debug("NodeID {} Initialising Velocity Control (default profile)", NodeID);
+    motorProfile p;
+    p.profileVelocity     = 500000;   // max profile velocity — tune as needed
+    p.profileAcceleration = 100000;   // ramp up in ~1 second at target speed
+    p.profileDeceleration = 100000;
+    sendSDOMessages(Drive::generateVelControlConfigSDO(p));
     return true;
 }
 
 bool CopleyDrive::initTorqueControl() {
     spdlog::debug("NodeID {} Initialising Torque Control", NodeID);
-    sendSDOMessages(generateTorqueControlConfigSDO());
 
+    std::vector<std::string> CANCommands;
+    std::stringstream sstream;
+
+    // Phasing mode 5: algorithmic wake-and-wiggle phase find (required for BLDC with no Hall sensors)
+    // Runs automatically on next enable; result saved to flash so it persists across power cycles.
+    sstream << "[1] " << NodeID << " write 0x21C0 0 i16 5";
+    CANCommands.push_back(sstream.str());
+    sstream.str(std::string());
+
+    // Max current during phase init: 200 = 2.00 A (units: 0.01 A)
+    sstream << "[1] " << NodeID << " write 0x21C2 0 u16 200";
+    CANCommands.push_back(sstream.str());
+    sstream.str(std::string());
+
+    // Standard torque mode config (sets 0x6060 = 4)
+    auto torqueSDOs = generateTorqueControlConfigSDO();
+    CANCommands.insert(CANCommands.end(), torqueSDOs.begin(), torqueSDOs.end());
+
+    sendSDOMessages(CANCommands);
     return true;
 }
 
