@@ -1,8 +1,8 @@
 #!/bin/bash
 
 echo "Configure CAN1 pins"
-sudo config-pin p9.24 can
-sudo config-pin p9.26 can
+#sudo config-pin p9.24 can  # configured by BBORG_COMMS-00A2.dtbo at boot
+#sudo config-pin p9.26 can  # configured by BBORG_COMMS-00A2.dtbo at boot
 echo "Enabling CAN1"
 sudo ip link set can1 up type can bitrate 1000000
 sudo ifconfig can1 up

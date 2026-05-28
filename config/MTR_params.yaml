@@ -8,17 +8,19 @@
 #   Arm geometry sourced from System Modelling/torquecalc (1).m.
 #   Joint limits sourced from System Modelling/ROM (1).m and accelCalc (1).m.
 #
-#   Values marked ESTIMATE need to be replaced after hardware identification.
-#
 #   To load this file, construct RobotMTR with:
 #       RobotMTR("RobotMTR", "MTR_params.yaml")
 #
+#   Parameter status legend:
+#     VERIFIED   — confirmed against hardware or datasheet
+#     ESTIMATE   — reasonable guess; replace after system identification
+#     MUST VERIFY — MUST be measured on physical robot before use
 #
 #   Diagram (top view, horizontal plane)
 #
 #   Origin (shoulder)
-#       ●──────────────● θ₁  (proximal joint, Drive 1, CAN ID 1)
-#                       └─────────────── θ₂  (elbow, Drive 2, CAN ID 2)
+#       ●──────────────● θ₁  (proximal joint, Drive 1, CAN ID 2)
+#                       └─────────────── θ₂  (elbow, Drive 2, CAN ID 4)
 #                                        └── ● Handle (end-effector)
 #
 #   θ₁ ∈ [−30°, 100°]   measured from the +X axis
@@ -28,57 +30,73 @@
 RobotMTR:
 
   # ── Geometry ─────────────────────────────────────────────────────────────────
+  # Status: MUST VERIFY — measure physical links before enabling forward kinematics.
   # Source: System Modelling/torquecalc (1).m
   L1: 0.43          # Proximal link length [m]  (shoulder → elbow pivot)
-  L2: 0.37           # Distal   link length [m]  (elbow pivot → handle)
+  L2: 0.37          # Distal   link length [m]  (elbow pivot → handle)
 
-  # Parallelogram linkage transmission ratio for joint 2.
-  # parallel_ratio = (motor rotation) / (geometric elbow angle change).
-  # 1.0 means the motor encoder directly reads the geometric elbow angle.
-  # Source: System Modelling/accelCalc (1).m
+  # Status: MUST VERIFY — depends on parallelogram linkage design.
+  # 1.0 means motor encoder directly reads the geometric elbow angle change.
   parallel_ratio: 1.0
 
   # ── Drive envelope ────────────────────────────────────────────────────────────
-  dqMax:  700        # Max joint speed  [deg/s]  — increased for free-shaft bench test (restore to ~30 when arm attached)
-  tauMax:  1000         # Max joint torque [N·m]    (hard-clamped ≤ 80 in code)
+  # dqMax — joint velocity safety limit [deg/s].
+  #   Only enforced when NOT calibrated (bench/startup safety check).
+  #   After calibration, end-effector velocity (2.0 m/s, hardcoded) is the active limit.
+  #   200 deg/s is a safe value with the arm physically attached.
+  #   For free-shaft bench testing increase to ~700 (observed ~600 deg/s in free spin).
+  # Status: THERAPY value — safe for arm-attached operation.
+  dqMax:  200        # [deg/s] — therapy value; increase to ~700 for free-shaft bench testing
+
+  # tauMax — joint torque command cap [N·m].
+  #   Applied in setTorque() (commands rejected above this) and setEndEffForceWithCompensation()
+  #   (joints clamped to ±tauMax before commanding).
+  #   NOT a calibrated-mode safety trigger — that uses end-effector velocity and position limits.
+  #   Motor continuous: Kt × I_rated = 0.114 × 6 = 0.684 N·m
+  #   Drive peak:       Kt × I_peak  = 0.114 × 12 = 1.37 N·m
+  #   With 0x6076 = 319 mN·m (WORKAROUND), Copley ±3200 per-mille range limits practical
+  #   max to 3200/1000 × 0.319 = 1.02 N·m. 0.9 N·m keeps headroom below saturation.
+  #   Restore to 1.37 once CME2 sets 0x6076 = 684 mN·m.
+  # Status: THERAPY value — reduced for 0x6076 workaround; restore to 1.37 after CME2 fix.
+  tauMax:  0.9       # [N·m] — capped for 0x6076=319 mN·m workaround; restore to 1.37 after CME2
 
   # ── Per-joint drive parameters ────────────────────────────────────────────────
-  # Index 0 = proximal (shoulder),  index 1 = distal (elbow)
-  iPeakDrives:  [6.0, 6.0]       # ACK-055-06 peak current [A]
+  # Status: SOFTWARE WORKAROUND — 0x6076 (Motor Rated Torque) reads 319 mN·m on both drives
+  #   (expected 684 mN·m = 6.0 A × 0.114 N·m/A). iPeakDrives adjusted so that
+  #   iPeak × Kt = 0x6076 in N·m = 0.319. Fix properly via CME2 when a direct CAN/USB
+  #   hardware connection to the drives is available, then restore iPeakDrives to [6.0, 6.0].
+  iPeakDrives:  [2.798, 2.798]   # WORKAROUND: 0.319/0.114 — true ACK-055-06 peak is 6.0 A
   motorCstt:    [0.114, 0.114]   # Maxon EC60 Kt [N·m/A]
+
+  # Status: VERIFIED — qSigns confirmed correct direction during motor spin tests.
   qSigns:       [1, -1]           # +1 = positive torque → increasing joint angle
 
   # ── Joint limits ──────────────────────────────────────────────────────────────
-  # Format: [θ1_min, θ1_max, θ2_min, θ2_max]  in degrees
-  # Source: System Modelling/ROM (1).m and accelCalc (1).m
+  # Status: MUST VERIFY — these are design values from system modelling.
+  #   Confirm actual mechanical limits by commanding motion toward each stop.
+  # Format: [θ1_min, θ1_max, θ2_min, θ2_max] in degrees
   qLimits: [-30, 100, -160, -30]
 
   # ── Calibration ───────────────────────────────────────────────────────────────
-  # The CalibState drives both joints with a fixed positive torque until each
-  # joint reaches its mechanical hard stop and ceases moving.  qCalibration
-  # holds the KNOWN angles at those stops so the encoder offsets can be zeroed.
-  #
-  # Default assumption: positive torque → angle increases → stop at θ_max.
-  #
-  # *** These values MUST be verified on the physical hardware. ***
-  # Verification procedure:
-  #   1. Manually drive the arm to what you believe is the max-angle hard stop.
-  #   2. Read the raw encoder angle from the Kinco drive software.
-  #   3. Replace the values below with those measured angles.
-  qCalibration: [100, -30]    # [θ₁_stop_deg, θ₂_stop_deg]
+  # Status: MUST VERIFY — read raw encoder angles from Copley drive at each hard stop
+  #   (PCAN-View / candump SDO read of 0x6064) and replace these values.
+  #   CalibState drives both joints with positive torque until motion stops then applies
+  #   these as the known positions. Wrong values corrupt ALL kinematic and force control.
+  # Format: [θ₁_stop_deg, θ₂_stop_deg]  (positive torque → stop at θ_max by default)
+  qCalibration: [100, -30]    # [θ₁_max_stop, θ₂_max_stop] — MUST VERIFY on hardware
 
-  # ── Friction model  (ESTIMATE — replace after system identification) ──────────
-  # Applied in setEndEffForceWithCompensation() as:
-  #   τ_fric = frictionCoul × sign(dq) + frictionVis × dq
-  # Both terms are gated by a 0.03 rad/s dead-band to avoid chatter at rest.
-  frictionVis:  [0.2, 0.2]    # Viscous  coefficient [N·m·s/rad]
-  frictionCoul: [0.5, 0.5]    # Coulomb  coefficient [N·m]
+  # ── Friction model ────────────────────────────────────────────────────────────
+  # Status: ESTIMATE — replace after system identification.
+  #   Coulomb 0.5 N·m = 73% of rated motor torque per joint. This is very aggressive
+  #   and will dominate force commands until identified properly.
+  #   Set both to 0.0 for initial therapy testing; add back after measuring on hardware.
+  # Applied in setEndEffForceWithCompensation():
+  #   τ_fric = frictionCoul × sign(dq) + frictionVis × dq   (gated by 0.03 rad/s deadband)
+  frictionVis:  [0.0, 0.0]    # Viscous  [N·m·s/rad] — zeroed until system ID
+  frictionCoul: [0.0, 0.0]    # Coulomb  [N·m]       — zeroed until system ID
 
   # ── Safety envelope ──────────────────────────────────────────────────────────
-  # maxEndEffForce: maximum XY Cartesian force magnitude delivered to the patient [N].
-  # The Cartesian force is saturated before the Jᵀ mapping so the force direction
-  # is preserved — only the magnitude is capped.
-  # With tauMax = 10 N·m and L1+L2 = 0.80 m the drives can produce ~12–27 N
-  # depending on configuration, so 20 N provides a meaningful patient-safety margin.
-  # Verify and adjust for the intended patient population before clinical use.
+  # Status: VERIFIED reasonable — motors physically cannot produce 20 N at end-effector
+  #   (~5 N max from joint torque via Jᵀ), so this cap is a backstop against calculation errors.
+  #   Review before clinical use with patients.
   maxEndEffForce: 20.0        # Max end-effector contact force (XY) [N]

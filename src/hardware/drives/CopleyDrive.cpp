@@ -12,6 +12,11 @@ CopleyDrive::CopleyDrive(int NodeID) : Drive::Drive(NodeID) {
     RPDO_MappedObjects[1] = {CONTROL_WORD};   // no DIGITAL_OUT mapping on Copley
     TPDO_MappedObjects[4] = {};               // 0x219A is not PDO-mappable on Copley drives
 
+    // TPDO3: Torque Actual Value (0x6077, Rated Torque/1000).
+    // Requires Motor Rated Torque (0x6076) to be stored in drive flash from CME2 commissioning.
+    // If 0x6077 always reads 0, swap to {0x6074, 0x00} (Torque Demand — works without CME2).
+    OD_Addresses[ACTUAL_TOR] = {0x6077, 0x00}; // 0x6077 = Torque Actual Value, 0x6074 = Torque Demand
+    TPDO_MappedObjects[3] = {ACTUAL_TOR};   // ACTUAL_TOR = 0x6077
 }
 CopleyDrive::~CopleyDrive() {
     spdlog::debug("CopleyDrive Deleted");

@@ -21,10 +21,6 @@ RobotMTR::RobotMTR(const string &robot_name, const string &yaml_config_file)
     // Load YAML overrides before joints are constructed so limits are correct.
     initialiseFromYAML(yaml_config_file);
 
-    // NOTE: Step 3 — both drives were found at CAN node 4 (candump showed two
-    //   identical 704 heartbeat frames). Before running two motors, use CME2 to
-    //   change the distal drive's node ID to 2. CopleyDrive(4) = proximal (q1),
-    //   CopleyDrive(2) = distal (q2). Verify with candump: expect 704 and 702.
     addJoint(new JointMT(0,
                          qLimits[0], qLimits[1],          // θ₁ min / max
                          (short int)qSigns[0],
@@ -88,15 +84,16 @@ bool RobotMTR::loadParametersFromYAML(YAML::Node params) {
     if (p["L2"])             L2             = p["L2"].as<double>();
     if (p["parallel_ratio"]) parallel_ratio = p["parallel_ratio"].as<double>();
 
-    // Drive envelope (hard-constrained for safety, same as M3)
-    if (p["dqMax"])  dqMax  = min(max(0., p["dqMax"].as<double>()), 360.) * M_PI / 180.;
+    // Drive envelope (hard-constrained for safety)
+    if (p["dqMax"])  dqMax  = min(max(0., p["dqMax"].as<double>()), 3600.) * M_PI / 180.;
     if (p["tauMax"]) tauMax = min(max(0., p["tauMax"].as<double>()), 80.);
 
     // Safety envelope
     if (p["maxEndEffForce"]) maxEndEffForce = max(0., p["maxEndEffForce"].as<double>());
 
-
     fillParam(p["qSigns"],       qSigns);
+    fillParam(p["iPeakDrives"],  iPeakDrives);
+    fillParam(p["motorCstt"],    motorCstt);
     fillParam(p["frictionVis"],  frictionVis);
     fillParam(p["frictionCoul"], frictionCoul);
 
@@ -108,7 +105,6 @@ bool RobotMTR::loadParametersFromYAML(YAML::Node params) {
     if (p["qCalibration"]) {
         qCalibration[0] = p["qCalibration"][0].as<double>() * M_PI / 180.;
         qCalibration[1] = p["qCalibration"][1].as<double>() * M_PI / 180.;
-        qCalibration[2] = 0.0;
     }
 
     spdlog::info("RobotMTR: Loaded YAML parameters for '{}'"
@@ -237,27 +233,18 @@ void RobotMTR::applyCalibration() {
 // ─── Forward kinematics ───────────────────────────────────────────────────────
 // x = L1·cos(θ₁) + L2·cos(θ₁ + θ₂·r)
 // y = L1·sin(θ₁) + L2·sin(θ₁ + θ₂·r)
-// z = 0  (horizontal plane)
-VM3 RobotMTR::directKinematic(VM3 q) {
+VM2 RobotMTR::directKinematic(VM2 q) {
     double t1  = q[0];
     double t12 = q[0] + q[1] * parallel_ratio;
-    return VM3(
+    return VM2(
         L1 * cos(t1) + L2 * cos(t12),
-        L1 * sin(t1) + L2 * sin(t12),
-        0.0
+        L1 * sin(t1) + L2 * sin(t12)
     );
 }
 
 // ─── Jacobian ─────────────────────────────────────────────────────────────────
-// 2R planar Jacobian embedded in 3×3.
-// Columns correspond to joints 0 and 1 (joint 2 does not exist on hardware).
-// Row 2 (z-velocity) is the identity passthrough for the planar constraint.
-//
-//   det(J) = L1·L2·sin(θ₂·r)
-//   Singular when θ₂ = 0° (fully extended) or ±180° (fully folded back).
-//   Both are outside the operating range θ₂ ∈ [−160°, −30°], so the
-//   Jacobian is always invertible in the workspace.
-Matrix3d RobotMTR::J() {
+// 2×2 planar Jacobian.  det(J) = L1·L2·sin(θ₂·r) — always non-zero in workspace.
+Matrix2d RobotMTR::J() {
     double t1  = joints[0]->getPosition();
     double t2  = (joints.size() > 1 ? joints[1]->getPosition() : 0.0) * parallel_ratio;
     double t12 = t1 + t2;
@@ -265,21 +252,17 @@ Matrix3d RobotMTR::J() {
     double s1  = sin(t1),  c1  = cos(t1);
     double s12 = sin(t12), c12 = cos(t12);
 
-    Matrix3d Jac = Matrix3d::Zero();
-
+    Matrix2d Jac;
     Jac(0, 0) = -L1 * s1 - L2 * s12;    Jac(0, 1) = -L2 * s12;
     Jac(1, 0) =  L1 * c1 + L2 * c12;    Jac(1, 1) =  L2 * c12;
-    Jac(2, 2) = 1.0;   // Z identity — maps planar-constraint F.z → τ[2] (discarded)
 
     return Jac;
 }
 
 // ─── Gravity ──────────────────────────────────────────────────────────────────
-// Zero — the arm moves in a horizontal plane; gravity acts normal to the
-// workspace.  Inertia / Coriolis compensation is left as a TODO once the
-// full dynamic model from System Modelling is complete.
-VM3 RobotMTR::calculateGravityTorques() {
-    return VM3::Zero();
+// Zero — the arm moves in a horizontal plane; gravity acts normal to the workspace.
+VM2 RobotMTR::calculateGravityTorques() {
+    return VM2::Zero();
 }
 
 
@@ -292,22 +275,21 @@ void RobotMTR::updateRobot() {
     Robot::updateRobot();   // fills jointPositions_, jointVelocities_, jointTorques_
 
     bool two = joints.size() > 1;
-    VM3 q  (joints[0]->getPosition(), two ? joints[1]->getPosition() : 0.0, 0.0);
-    VM3 dq (joints[0]->getVelocity(), two ? joints[1]->getVelocity() : 0.0, 0.0);
-    VM3 tau(joints[0]->getTorque(),   two ? joints[1]->getTorque()   : 0.0, 0.0);
+    VM2 q  (joints[0]->getPosition(), two ? joints[1]->getPosition() : 0.0);
+    VM2 dq (joints[0]->getVelocity(), two ? joints[1]->getVelocity() : 0.0);
+    VM2 tau(joints[0]->getTorque(),   two ? joints[1]->getTorque()   : 0.0);
 
     // End-effector position via forward kinematics
     endEffPositions  = directKinematic(q);
 
     // End-effector velocity: dX = J · dq
-    Matrix3d _J      = J();
+    Matrix2d _J      = J();
     endEffVelocities = _J * dq;
 
     // End-effector force from motor torques: F = (Jᵀ)⁻¹ · τ
-    // Only computed when J is not near-singular (det check).
     double det = _J.determinant();   // = L1·L2·sin(θ₂·r) — always non-zero in workspace
     if (abs(det) > 1e-6) {
-        Matrix3d _Jtinv = (_J.transpose()).inverse();
+        Matrix2d _Jtinv = (_J.transpose()).inverse();
         endEffForces      = _Jtinv * tau;
         interactionForces = endEffForces;   // gravity is zero; τ_interaction = τ_motor
     }
@@ -325,7 +307,6 @@ void RobotMTR::updateRobot() {
 
 setMovementReturnCode_t RobotMTR::safetyCheck() {
     if (calibrated) {
-        // NOTEL: double check the implemented safety, maybe need extra for joint position limits when end effector moving (coordinated joint limits)
         for (unsigned int i = 0; i < joints.size(); i++) {
             double q = joints[i]->getPosition();
             if (q < qLimits[2*i] || q > qLimits[2*i+1]) {
@@ -355,16 +336,15 @@ setMovementReturnCode_t RobotMTR::safetyCheck() {
 // Joint-space setters
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Only tau[0] and tau[1] are applied — there is no third drive on the MTR.
-setMovementReturnCode_t RobotMTR::setJointTorque(VM3 tau) {
+setMovementReturnCode_t RobotMTR::setJointTorque(VM2 tau) {
     return applyTorque({tau[0], tau[1]});
 }
 
-setMovementReturnCode_t RobotMTR::setJointPosition(VM3 q) {
+setMovementReturnCode_t RobotMTR::setJointPosition(VM2 q) {
     return applyPosition({q[0], q[1]});
 }
 
-setMovementReturnCode_t RobotMTR::setJointVelocity(VM3 dq) {
+setMovementReturnCode_t RobotMTR::setJointVelocity(VM2 dq) {
     return applyVelocity({dq[0], dq[1]});
 }
 
@@ -375,38 +355,26 @@ setMovementReturnCode_t RobotMTR::setJointVelocity(VM3 dq) {
 
 // τ = Jᵀ · F  +  τ_friction
 // Gravity is zero (horizontal plane) — no τ_gravity term.
-// The robot has only 2 physical drives; setJointTorque passes only tau[0] and
-// tau[1] to hardware.  tau[2] = J(2,:)ᵀ · F = F.z() (via the Z identity row)
-// and is discarded there — this is by design so F.z() from the soft planar
-// constraint requires no special-casing here.
 //
 // Safety pipeline (in order):
-//   1. Saturate XY Cartesian force magnitude before Jᵀ — scales F uniformly so
-//      the impedance force direction is preserved and the patient contact force
-//      is bounded.  Saturating after Jᵀ (per-joint) would distort the force
-//      direction in a configuration-dependent way.
-//   2. Map to joint torques via Jᵀ — never requires Jacobian inversion, always safe.
+//   1. Saturate XY Cartesian force magnitude — preserves force direction.
+//   2. Map to joint torques via Jᵀ — never requires Jacobian inversion.
 //   3. Add per-joint friction compensation in joint space.
-//   4. Clamp each joint torque to ±tauMax — final guard against friction compensation
-//      pushing the output above the drive limit.
+//   4. Clamp each joint torque to ±tauMax.
 setMovementReturnCode_t
-RobotMTR::setEndEffForceWithCompensation(VM3 F, bool friction_comp) {
+RobotMTR::setEndEffForceWithCompensation(VM2 F, bool friction_comp) {
     if (!calibrated) return NOT_CALIBRATED;
 
     // ── 1. Cartesian force saturation ─────────────────────────────────────────
-    // Saturate XY only — Z is discarded by hardware and should not reduce the
-    // patient-facing force budget.
-    double fNorm = std::sqrt(F.x()*F.x() + F.y()*F.y());
+    double fNorm = F.norm();
     if (fNorm > maxEndEffForce) {
-        double scale = maxEndEffForce / fNorm;
-        F.x() *= scale;
-        F.y() *= scale;
+        F *= maxEndEffForce / fNorm;
         spdlog::warn("MTR: Cartesian force saturated from {:.1f} N to {:.1f} N.",
                      fNorm, maxEndEffForce);
     }
 
     // ── 2. Cartesian → joint torques via Jᵀ ──────────────────────────────────
-    VM3 tau = J().transpose() * F;   // tau[2] = F.z(); discarded in setJointTorque
+    VM2 tau = J().transpose() * F;
 
     // ── 3. Friction compensation ──────────────────────────────────────────────
     if (friction_comp) {
@@ -427,15 +395,16 @@ RobotMTR::setEndEffForceWithCompensation(VM3 F, bool friction_comp) {
         }
     }
 
-    return setJointTorque(tau);   // only tau[0] and tau[1] reach hardware
+    return setJointTorque(tau);
 }
 
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Private drive helpers (mirror RobotM3 pattern exactly)
+// Private drive helpers
 // ═══════════════════════════════════════════════════════════════════════════════
 
 setMovementReturnCode_t RobotMTR::applyTorque(vector<double> torques) {
+    lastCommandedTorque = VM2(torques[0], torques.size() > 1 ? torques[1] : 0.0);
     int i = 0;
     setMovementReturnCode_t ret = SUCCESS;
     for (auto p : joints) {

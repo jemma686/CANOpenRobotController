@@ -51,7 +51,7 @@ class I2CDevice {
         /**
          \fn Public Destructor
          */
-        ~I2CDevice();
+        virtual ~I2CDevice();
 
         /**
          \fn Public Constructor

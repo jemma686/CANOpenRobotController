@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.5)
 project(CORC C CXX)
 
+# Export compile commands so VSCode IntelliSense can find all headers automatically.
+# After running cmake, point c_cpp_properties.json compileCommands at
+# build/compile_commands.json for accurate squiggle-free editing.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Build for BeagleBone (ARM):
 #   mkdir -p build && cd build
 #   cmake -DCMAKE_TOOLCHAIN_FILE=../armhf.cmake ..
