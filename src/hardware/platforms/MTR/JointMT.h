@@ -33,20 +33,26 @@ class JointMT : public Joint {
    private:
     const short int sign;
     const double qMin, qMax, dqMin, dqMax, tauMin, tauMax;
-    int encoderCounts = 8192;  //Encoder counts per turn, multiple of 4
+
+    // TO DO: verify the encoder counts
+    int encoderCounts = 8192;  //Encoder counts per turn, multiple of 4, potentially 4096
     double reductionRatio = 1.0;  // direct drive — no gearbox attached
 
     // Torque scaling: 1000 drive units (DS402 0x6071) = Ipeak × Kt N·m = rated torque.
     // MUST VERIFY: read 0x6076 (Motor Rated Torque) from drive flash via candump/cansend or
     //   PCAN-View. It must equal Ipeak × Kt × 1000 mN·m = 684 mN·m. If the drives were
     //   CME2-commissioned for a different robot, re-run CME2 to set 0x6076 = 684 mN·m.
-    double Ipeak = 6.0;                  //!< ACK-055-06 continuous current [A]
+    
+    // TO DO: validate Ipeak
+    double Ipeak = 2.7;                  //!< ACK-055-06 continuous current [A] where it hits its thermal ceiling, limit to nominal (should be able to go above functionally)
     double motorTorqueConstant = 0.114;  //!< Maxon EC60 torque constant [N·m/A]
 
     double driveUnitToJointPosition(int driveValue) { return sign * driveValue * (2. * M_PI) / (double)encoderCounts / reductionRatio; };
     int jointPositionToDriveUnit(double jointValue) { return sign * jointValue / (2. * M_PI) * (double)encoderCounts * reductionRatio; };
     double driveUnitToJointVelocity(int driveValue) { return sign * driveValue * (2. * M_PI) / 60. / 512. / (double)encoderCounts * 1875 / reductionRatio; };
     int jointVelocityToDriveUnit(double jointValue) { return sign * jointValue / (2. * M_PI) * 60. * 512. * (double)encoderCounts / 1875 * reductionRatio; };
+    
+    // TO DO: Double check these conversions please!
     double driveUnitToJointTorque(int driveValue) { return sign * driveValue / 1000.0 * motorTorqueConstant * Ipeak * reductionRatio; };
     int jointTorqueToDriveUnit(double jointValue) { return (int)(sign * jointValue / (motorTorqueConstant * Ipeak) * 1000.0 / reductionRatio); };
 

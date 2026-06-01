@@ -18,10 +18,15 @@ JointMT::~JointMT() {
 }
 
 setMovementReturnCode_t JointMT::safetyCheck() {
+    // TO DO: Double check these limits please! Are they correct and do they work as expected?
     if (velocity > dqMax || velocity < dqMin) {
+        spdlog::error("JointMT {}: velocity limit  vel={:.1f} limit=±{:.1f} deg/s",
+                      id, velocity * 180.0 / M_PI, dqMax * 180.0 / M_PI);
         return OUTSIDE_LIMITS;
     }
     if (torque > tauMax || torque < tauMin) {
+        spdlog::error("JointMT {}: torque limit  tau={:.3f} limit=±{:.3f} N·m",
+                      id, torque, tauMax);
         return OUTSIDE_LIMITS;
     }
     return SUCCESS;

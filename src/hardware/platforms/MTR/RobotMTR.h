@@ -96,6 +96,7 @@ class RobotMTR : public Robot {
     void applyCalibration();
     bool isCalibrated() const { return calibrated; }
     void decalibrate()        { calibrated = false; }
+    double getTauMax()  const { return tauMax; }
 
     // ── Kinematics & dynamics ─────────────────────────────────────────────────
     /** 2×2 planar Jacobian. */
@@ -131,6 +132,7 @@ class RobotMTR : public Robot {
     // Parameters — defaults from system modelling; overridden by YAML if provided
     // ─────────────────────────────────────────────────────────────────────────
 
+    // TO DO: update once YAML file confirmed.
     // Geometry (System Modelling/torquecalc (1).m) — MUST match YAML
     double L1             = 0.43;   //!< Proximal link [m]  (MUST VERIFY)
     double L2             = 0.37;   //!< Distal   link [m]  (MUST VERIFY)
@@ -141,7 +143,7 @@ class RobotMTR : public Robot {
     double tauMax =  1.37;                   //!< Max joint torque [N·m]   (therapy: motor peak 12A × 0.114)
 
     // Per-joint drive parameters (index 0 = proximal, index 1 = distal)
-    std::vector<double> iPeakDrives  = { 6.0,  6.0};   //!< ACK-055-06 continuous current [A]
+    std::vector<double> iPeakDrives  = { 2.7,  2.7};   //!< Motor rated current [A] (0.319 N·m / 0.114 N·m/A)
     std::vector<double> motorCstt    = {0.114, 0.114};  //!< Maxon EC60 torque constant [N·m/A]
     std::vector<double> qSigns       = { 1.0,  -1.0};   //!< Sign correction (CW/CCW)
 
@@ -155,7 +157,7 @@ class RobotMTR : public Robot {
        -160.0 * M_PI / 180.0,    -30.0 * M_PI / 180.0    // θ₂ ∈ [−160°, −30°]
     };
 
-    // STEP 2 — verify these against the physical robot before CalibState is used.
+    // TO DO: verify these against the physical robot before CalibState is used.
     //   Read raw encoder angles via SDO 0x6064 at each hard stop and replace.
     //   qCalibration[0] = θ₁ at stop,  qCalibration[1] = θ₂ at stop.
     VM2 qCalibration = {
@@ -163,7 +165,8 @@ class RobotMTR : public Robot {
          -30.0 * M_PI / 180.0    // θ₂_max stop (least-flexed position) — MUST VERIFY
     };
 
-    bool calibrated = false;
+    bool calibrated      = false;
+    int  calibGraceCycles_ = 0;   // skip position limits for N cycles after applyCalibration()
 
     // ── Safety envelope ───────────────────────────────────────────────────────
     double maxEndEffVel   = 2.0;    //!< Max end-effector speed      [m/s]

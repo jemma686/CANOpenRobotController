@@ -5,6 +5,7 @@
 #include "CopleyDrive.h"
 
 #include <iostream>
+#include <set>
 
 CopleyDrive::CopleyDrive(int NodeID) : Drive::Drive(NodeID) {
     OD_Addresses[DIGITAL_IN] = {0x219A, 0x00};
@@ -66,14 +67,17 @@ bool CopleyDrive::initTorqueControl() {
     std::vector<std::string> CANCommands;
     std::stringstream sstream;
 
-    // Phasing mode 5: algorithmic wake-and-wiggle phase find (required for BLDC with no Hall sensors)
-    // Runs automatically on next enable; result saved to flash so it persists across power cycles.
-    sstream << "[1] " << NodeID << " write 0x21C0 0 i16 5";
-    CANCommands.push_back(sstream.str());
-    sstream.str(std::string());
-
-    // Max current during phase init: 200 = 2.00 A (units: 0.01 A)
-    sstream << "[1] " << NodeID << " write 0x21C2 0 u16 200";
+    // Run wake-and-wiggle (mode 5) once per drive per program run to establish commutation.
+    // A static set tracks which node IDs have already been phased so re-entering states
+    // does not re-trigger the wiggle (which would fault the drive on the second call).
+    // 0x21C2 = 30 → 0.30 A phasing current (units: 0.01 A).  Low enough to align the rotor
+    // gently without spinning it far enough to trip the drive's velocity protection.
+    // After the first run the result is saved to flash; power-cycling the drive is not needed.
+    // Mode 0: use the phase angle stored in drive flash.
+    // A mode-5 wake-and-wiggle was run on 2026-06-01 to establish and save this angle.
+    // Do not change back to mode 5 without restraining the arm first — the wiggle sweeps
+    // ~100 degrees of arm travel which is unsafe near a patient.
+    sstream << "[1] " << NodeID << " write 0x21C0 0 i16 0";
     CANCommands.push_back(sstream.str());
     sstream.str(std::string());
 

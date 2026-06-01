@@ -21,13 +21,13 @@ RobotMTR::RobotMTR(const string &robot_name, const string &yaml_config_file)
     // Load YAML overrides before joints are constructed so limits are correct.
     initialiseFromYAML(yaml_config_file);
 
-    addJoint(new JointMT(0,
-                         qLimits[0], qLimits[1],          // θ₁ min / max
-                         (short int)qSigns[0],
-                         -dqMax, dqMax,
-                         -tauMax, tauMax,
-                         iPeakDrives[0], motorCstt[0],
-                         new CopleyDrive(2), "q1"));
+     addJoint(new JointMT(0,
+                          qLimits[0], qLimits[1],          // θ₁ min / max
+                          (short int)qSigns[0],
+                          -dqMax, dqMax,
+                          -tauMax, tauMax,
+                          iPeakDrives[0], motorCstt[0],
+                          new CopleyDrive(4), "q1"));
 
     addJoint(new JointMT(1,
                          qLimits[2], qLimits[3],          // θ₂ min / max
@@ -35,7 +35,7 @@ RobotMTR::RobotMTR(const string &robot_name, const string &yaml_config_file)
                          -dqMax, dqMax,
                          -tauMax, tauMax,
                          iPeakDrives[1], motorCstt[1],
-                         new CopleyDrive(4), "q2"));
+                         new CopleyDrive(2), "q2"));
 
     addInput(keyboard = new Keyboard());
 
@@ -222,6 +222,7 @@ bool RobotMTR::initVelocityControl() {
 void RobotMTR::applyCalibration() {
     for (unsigned int i = 0; i < joints.size(); i++)
         ((JointMT *)joints[i])->setPositionOffset(qCalibration[i]);
+    calibGraceCycles_ = 10;   // ~20 ms at 500 Hz for the drive's 0x6064 to reflect the new offset
     calibrated = true;
 }
 
@@ -307,6 +308,7 @@ void RobotMTR::updateRobot() {
 
 setMovementReturnCode_t RobotMTR::safetyCheck() {
     if (calibrated) {
+        if (calibGraceCycles_ > 0) { calibGraceCycles_--; return SUCCESS; }
         for (unsigned int i = 0; i < joints.size(); i++) {
             double q = joints[i]->getPosition();
             if (q < qLimits[2*i] || q > qLimits[2*i+1]) {

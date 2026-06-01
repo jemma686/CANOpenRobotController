@@ -45,27 +45,30 @@ RobotMTR:
   #   After calibration, end-effector velocity (2.0 m/s, hardcoded) is the active limit.
   #   200 deg/s is a safe value with the arm physically attached.
   #   For free-shaft bench testing increase to ~700 (observed ~600 deg/s in free spin).
-  # Status: THERAPY value — safe for arm-attached operation.
-  dqMax:  200        # [deg/s] — therapy value; increase to ~700 for free-shaft bench testing
+  # Status: BENCH TEST value — increase back to 200 before arm-attached therapy testing.
+  dqMax:  700        # [deg/s] — bench test value; restore to 200 for arm-attached therapy use
 
   # tauMax — joint torque command cap [N·m].
   #   Applied in setTorque() (commands rejected above this) and setEndEffForceWithCompensation()
   #   (joints clamped to ±tauMax before commanding).
   #   NOT a calibrated-mode safety trigger — that uses end-effector velocity and position limits.
-  #   Motor continuous: Kt × I_rated = 0.114 × 6 = 0.684 N·m
-  #   Drive peak:       Kt × I_peak  = 0.114 × 12 = 1.37 N·m
-  #   With 0x6076 = 319 mN·m (WORKAROUND), Copley ±3200 per-mille range limits practical
-  #   max to 3200/1000 × 0.319 = 1.02 N·m. 0.9 N·m keeps headroom below saturation.
-  #   Restore to 1.37 once CME2 sets 0x6076 = 684 mN·m.
-  # Status: THERAPY value — reduced for 0x6076 workaround; restore to 1.37 after CME2 fix.
-  tauMax:  0.9       # [N·m] — capped for 0x6076=319 mN·m workaround; restore to 1.37 after CME2
+  #
+  #   Motor rated torque:   0.319 N·m  (nameplate — confirmed via 0x6076 readback)
+  #   Motor rated current:  0.319 / 0.114 = 2.80 A
+  #   Copley ±3200 per-mille range → max commandable = 3.2 × 0.319 = 1.02 N·m (8.9 A)
+  #   WARNING: sustained commands above ~0.319 N·m (rated) will overheat the motor.
+  #   0.4 N·m (125 % of rated) is acceptable for brief bench tests; use ≤ 0.319 for therapy.
+  # Status: BENCH TEST value — reduce to 0.319 or below for sustained therapy operation.
+  tauMax:  0.4
 
   # ── Per-joint drive parameters ────────────────────────────────────────────────
-  # Status: SOFTWARE WORKAROUND — 0x6076 (Motor Rated Torque) reads 319 mN·m on both drives
-  #   (expected 684 mN·m = 6.0 A × 0.114 N·m/A). iPeakDrives adjusted so that
-  #   iPeak × Kt = 0x6076 in N·m = 0.319. Fix properly via CME2 when a direct CAN/USB
-  #   hardware connection to the drives is available, then restore iPeakDrives to [6.0, 6.0].
-  iPeakDrives:  [2.798, 2.798]   # WORKAROUND: 0.319/0.114 — true ACK-055-06 peak is 6.0 A
+  # Status: VERIFIED — 0x6076 (Motor Rated Torque) = 319 mN·m is the correct nameplate value
+  #   for the Maxon EC60 motors fitted. Rated current = 319/114 = 2.798 A, confirming
+  #   iPeakDrives = 2.7 A. No CME2 change is needed; 0x6076 is correctly configured.
+  #   NOTE: 6.0 A is the Copley ACK-055-06 drive's own continuous output rating —
+  #   it is NOT the motor's rated current. Commanding sustained torque above 0.319 N·m
+  #   runs the motor above its thermal limit.
+  iPeakDrives:  [2.795, 2.795]   # Motor rated current: 0.319 N·m / 0.114 N·m/A = 2.80 A
   motorCstt:    [0.114, 0.114]   # Maxon EC60 Kt [N·m/A]
 
   # Status: VERIFIED — qSigns confirmed correct direction during motor spin tests.
