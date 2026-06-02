@@ -56,3 +56,11 @@ if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/config/MTR_params.yaml")
         COPYONLY
     )
 endif()
+
+add_custom_command(TARGET ${APP_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:${APP_NAME}>/config"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_LIST_DIR}/config/MTR_params.yaml"
+        "$<TARGET_FILE_DIR:${APP_NAME}>/config/MTR_params.yaml"
+)
