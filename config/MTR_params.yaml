@@ -103,8 +103,8 @@ RobotMTR:
   #   Set both to 0.0 for initial therapy testing; add back after measuring on hardware.
   # Applied in setEndEffForceWithCompensation():
   #   τ_fric = frictionCoul × sign(dq) + frictionVis × dq   (gated by 0.03 rad/s deadband)
-  frictionVis:  [0.0, 0.0]    # Viscous  [N·m·s/rad at joint] — zeroed until system ID
-  frictionCoul: [0.0, 0.0]    # Coulomb  [N·m at joint]       — zeroed until system ID
+  frictionVis:  [0.33, 0.76]    # Viscous  [N·m·s/rad at joint] — zeroed until system ID
+  frictionCoul: [0.35, 0.19]    # Coulomb  [N·m at joint]       — zeroed until system ID
 
   # ── Safety envelope ──────────────────────────────────────────────────────────
   # Status: VERIFIED reasonable — motors physically cannot produce 20 N at end-effector
