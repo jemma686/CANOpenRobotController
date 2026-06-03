@@ -23,8 +23,8 @@
 #                       └─────────────── θ₂  (elbow, Drive 2, CAN ID 3)
 #                                        └── ● Handle (end-effector)
 #
-#   θ₁ ∈ [−30°, 100°]   measured from the +X axis
-#   θ₂ ∈ [−160°, −30°]  measured from link-1 direction (always inward/negative)
+#   θ₁ ∈ [−30°, 100°]   measured from the +X axis (world frame, at shoulder)
+#   θ₂ ∈ [−160°, −30°]  measured from the +X axis (world frame, at shoulder — parallel linkage)
 #
 
 RobotMTR:
@@ -35,8 +35,8 @@ RobotMTR:
   L1: 0.43          # Proximal link length [m]  (shoulder → elbow pivot)
   L2: 0.37          # Distal   link length [m]  (elbow pivot → handle)
 
-  # Status: MUST VERIFY — depends on parallelogram linkage design.
-  # 1.0 means motor encoder directly reads the geometric elbow angle change.
+  # Not used in FK or Jacobian — θ₂ is the absolute world-frame angle of link 2
+  # (parallel linkage; link 2 angle is independent of link 1 rotation).
   parallel_ratio: 1.0
 
   # ── Drive envelope ────────────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ RobotMTR:
   # Status: VERIFIED — confirmed correct directions during motor spin tests.
   #   Joint 0 (shoulder): sign=-1 — positive joint torque cmd → positive joint angle change → drives to θ₁_max
   #   Joint 1 (elbow):    sign=+1 — positive joint torque cmd → drives toward θ₂_min (more negative)
-  qSigns:       [-1, 1]
+  qSigns:       [1, 1]
 
   # ── Joint limits ──────────────────────────────────────────────────────────────
   # Status: MUST VERIFY — these are design values from system modelling.
@@ -83,7 +83,7 @@ RobotMTR:
   # Limits are set 2° beyond the physical hard stops so encoder noise while the arm
   # sits against a stop does not immediately trigger the e-stop. JointMT torque
   # clipping and the mechanical stops prevent the arm exceeding the true stop angle.
-  qLimits: [-32, 102, -162, -28]
+  qLimits: [-50, 101, -136, 62]
 
   # ── Calibration ───────────────────────────────────────────────────────────────
   # Status: MUST VERIFY — these are the KNOWN joint angles at each mechanical hard stop.
@@ -92,10 +92,10 @@ RobotMTR:
   #   NOTE: The q=[...] printout during CalibState shows PRE-calibration raw encoder values
   #   relative to power-on position — those numbers do NOT directly give the stop angle.
   #   Wrong qCalibration values corrupt ALL kinematics and force control.
-  # Format: [θ₁_stop_deg, θ₂_stop_deg]
-  #   Joint 0 (shoulder): CalibState scale[0]=+1.3 drives to θ₁_max hard stop
-  #   Joint 1 (elbow):    CalibState scale[1]=+1.0 drives to θ₂_min hard stop
-  qCalibration: [100, -160]   # [θ₁_max_stop, θ₂_min_stop] in degrees — MUST VERIFY on hardware
+  # Format: [θ₁_cal_deg, θ₂_cal_deg]
+  #   Joint 0 (shoulder): pressing encoder/Enter in CalibState labels current position as 100°
+  #   Joint 1 (elbow):    pressing encoder/Enter in CalibState labels current position as −50°
+  qCalibration: [100, -50]   # [θ₁_cal_deg, θ₂_cal_deg] in degrees — MUST VERIFY on hardware
 
   # ── Friction model ────────────────────────────────────────────────────────────
   # Status: ESTIMATE — replace after system identification.

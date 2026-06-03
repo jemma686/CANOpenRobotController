@@ -233,31 +233,28 @@ void RobotMTR::applyCalibration() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // ─── Forward kinematics ───────────────────────────────────────────────────────
-// x = L1·cos(θ₁) + L2·cos(θ₁ + θ₂·r)
-// y = L1·sin(θ₁) + L2·sin(θ₁ + θ₂·r)
+// Parallel linkage: θ₂ is the absolute world-frame angle of link 2 (same origin
+// as θ₁ at the shoulder), not the angle relative to link 1.
+// x = L1·cos(θ₁) + L2·cos(θ₂)
+// y = L1·sin(θ₁) + L2·sin(θ₂)
 VM2 RobotMTR::directKinematic(VM2 q) {
-    double t1  = q[0];
-    double t12 = q[0] + q[1] * parallel_ratio;
     return VM2(
-        L1 * cos(t1) + L2 * cos(t12),
-        L1 * sin(t1) + L2 * sin(t12)
+        L1 * cos(q[0]) + L2 * cos(q[1]),
+        L1 * sin(q[0]) + L2 * sin(q[1])
     );
 }
 
 // ─── Jacobian ─────────────────────────────────────────────────────────────────
-// 2×2 planar Jacobian.  det(J) = L1·L2·sin(θ₂·r) — always non-zero in workspace.
+// 2×2 planar Jacobian for parallel linkage (θ₂ absolute).
+// det(J) = L1·L2·sin(θ₂ - θ₁) — zero only at singular configs (arm fully extended/folded).
 // getPosition() returns joint-space radians (reductionRatio=15 applied in JointMT).
 Matrix2d RobotMTR::J() {
-    double t1  = joints[0]->getPosition();
-    double t2  = (joints.size() > 1 ? joints[1]->getPosition() : 0.0) * parallel_ratio;
-    double t12 = t1 + t2;
-
-    double s1  = sin(t1),  c1  = cos(t1);
-    double s12 = sin(t12), c12 = cos(t12);
+    double t1 = joints[0]->getPosition();
+    double t2 = joints.size() > 1 ? joints[1]->getPosition() : 0.0;
 
     Matrix2d Jac;
-    Jac(0, 0) = -L1 * s1 - L2 * s12;    Jac(0, 1) = -L2 * s12;
-    Jac(1, 0) =  L1 * c1 + L2 * c12;    Jac(1, 1) =  L2 * c12;
+    Jac(0, 0) = -L1 * sin(t1);    Jac(0, 1) = -L2 * sin(t2);
+    Jac(1, 0) =  L1 * cos(t1);    Jac(1, 1) =  L2 * cos(t2);
 
     return Jac;
 }
@@ -290,7 +287,7 @@ void RobotMTR::updateRobot() {
     endEffVelocities = _J * dq;
 
     // End-effector force from motor torques: F = (Jᵀ)⁻¹ · τ
-    double det = _J.determinant();   // = L1·L2·sin(θ₂·r) — always non-zero in workspace
+    double det = _J.determinant();   // = L1·L2·sin(θ₂ - θ₁) — zero only at singularity (arm fully extended/folded)
     if (abs(det) > 1e-6) {
         Matrix2d _Jtinv = (_J.transpose()).inverse();
         endEffForces      = _Jtinv * tau;
