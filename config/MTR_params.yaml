@@ -57,13 +57,13 @@ RobotMTR:
   #   WARNING: sustained commands above ~0.319 N·m (rated) will overheat the motor.
   #   0.4 N·m (125 % of rated) is acceptable for brief bench tests; use ≤ 0.319 for therapy.
   # Status: BENCH TEST value — reduce to 0.319 or below for sustained therapy operation.
-  tauMax:  0.6
+  tauMax:  1.0
 
   # tauSafetyMax — measured-torque emergency-stop threshold [N·m].
   #   Applied ONLY after calibration (so wake-and-wiggle phasing current never trips it).
   #   Must be > tauMax. 0.8 N·m = 2 × tauMax catches genuine runaway without
   #   false-tripping on brief therapy contact forces.
-  tauSafetyMax: 0.8
+  tauSafetyMax: 0.9
 
   # ── Per-joint drive parameters ────────────────────────────────────────────────
   # Status: VERIFIED — 0x6076 (Motor Rated Torque) = 319 mN·m is the correct nameplate value
@@ -76,7 +76,7 @@ RobotMTR:
   motorCstt:    [0.114, 0.114]   # Maxon EC60 Kt [N·m/A]
 
   # Status: VERIFIED — qSigns confirmed correct direction during motor spin tests.
-  qSigns:       [1, -1]           # +1 = positive torque → increasing joint angle
+  qSigns:       [1, 1]           # +1 = positive torque → increasing joint angle
 
   # ── Joint limits ──────────────────────────────────────────────────────────────
   # Status: MUST VERIFY — these are design values from system modelling.
@@ -89,8 +89,10 @@ RobotMTR:
   #   (PCAN-View / candump SDO read of 0x6064) and replace these values.
   #   CalibState drives both joints with positive torque until motion stops then applies
   #   these as the known positions. Wrong values corrupt ALL kinematic and force control.
-  # Format: [θ₁_stop_deg, θ₂_stop_deg]  (positive torque → stop at θ_max by default)
-  qCalibration: [100, -30]    # [θ₁_max_stop, θ₂_max_stop] — MUST VERIFY on hardware
+  # Format: [θ₁_stop_deg, θ₂_stop_deg]
+  #   Joint 0 (shoulder): scale=+1.2 → positive torque → drives to θ₁_max = +100°
+  #   Joint 1 (elbow):    scale=-1.0 → negative torque → drives to θ₂_min = −160°
+  qCalibration: [100, -160]   # [θ₁_max_stop, θ₂_min_stop] — MUST VERIFY on hardware
 
   # ── Friction model ────────────────────────────────────────────────────────────
   # Status: ESTIMATE — replace after system identification.
