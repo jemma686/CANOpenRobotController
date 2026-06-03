@@ -5,7 +5,7 @@
 #include "CopleyDrive.h"
 
 #include <iostream>
-#include <set>
+#include <unistd.h>
 
 CopleyDrive::CopleyDrive(int NodeID) : Drive::Drive(NodeID) {
     OD_Addresses[DIGITAL_IN] = {0x219A, 0x00};
@@ -13,11 +13,6 @@ CopleyDrive::CopleyDrive(int NodeID) : Drive::Drive(NodeID) {
     RPDO_MappedObjects[1] = {CONTROL_WORD};   // no DIGITAL_OUT mapping on Copley
     TPDO_MappedObjects[4] = {};               // 0x219A is not PDO-mappable on Copley drives
 
-    // TPDO3: Torque Actual Value (0x6077, Rated Torque/1000).
-    // Requires Motor Rated Torque (0x6076) to be stored in drive flash from CME2 commissioning.
-    // If 0x6077 always reads 0, swap to {0x6074, 0x00} (Torque Demand — works without CME2).
-    OD_Addresses[ACTUAL_TOR] = {0x6077, 0x00}; // 0x6077 = Torque Actual Value, 0x6074 = Torque Demand
-    TPDO_MappedObjects[3] = {ACTUAL_TOR};   // ACTUAL_TOR = 0x6077
 }
 CopleyDrive::~CopleyDrive() {
     spdlog::debug("CopleyDrive Deleted");
@@ -61,31 +56,10 @@ bool CopleyDrive::initVelControl() {
     return true;
 }
 
+
 bool CopleyDrive::initTorqueControl() {
     spdlog::debug("NodeID {} Initialising Torque Control", NodeID);
-
-    std::vector<std::string> CANCommands;
-    std::stringstream sstream;
-
-    // Run wake-and-wiggle (mode 5) once per drive per program run to establish commutation.
-    // A static set tracks which node IDs have already been phased so re-entering states
-    // does not re-trigger the wiggle (which would fault the drive on the second call).
-    // 0x21C2 = 30 → 0.30 A phasing current (units: 0.01 A).  Low enough to align the rotor
-    // gently without spinning it far enough to trip the drive's velocity protection.
-    // After the first run the result is saved to flash; power-cycling the drive is not needed.
-    // Mode 0: use the phase angle stored in drive flash.
-    // A mode-5 wake-and-wiggle was run on 2026-06-01 to establish and save this angle.
-    // Do not change back to mode 5 without restraining the arm first — the wiggle sweeps
-    // ~100 degrees of arm travel which is unsafe near a patient.
-    sstream << "[1] " << NodeID << " write 0x21C0 0 i16 0";
-    CANCommands.push_back(sstream.str());
-    sstream.str(std::string());
-
-    // Standard torque mode config (sets 0x6060 = 4)
-    auto torqueSDOs = generateTorqueControlConfigSDO();
-    CANCommands.insert(CANCommands.end(), torqueSDOs.begin(), torqueSDOs.end());
-
-    sendSDOMessages(CANCommands);
+    sendSDOMessages(generateTorqueControlConfigSDO());
     return true;
 }
 

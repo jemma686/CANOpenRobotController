@@ -36,7 +36,7 @@ class JointMT : public Joint {
 
     // TO DO: verify the encoder counts
     int encoderCounts = 8192;  //Encoder counts per turn, multiple of 4, potentially 4096
-    double reductionRatio = 1.0;  // direct drive — no gearbox attached
+    double reductionRatio = 15.0;  
 
     // Torque scaling: 1000 drive units (DS402 0x6071) = Ipeak × Kt N·m = rated torque.
     // MUST VERIFY: read 0x6076 (Motor Rated Torque) from drive flash via candump/cansend or

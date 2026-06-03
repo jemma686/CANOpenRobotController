@@ -91,6 +91,7 @@ class RobotMTR : public Robot {
 
     // ── Safety ────────────────────────────────────────────────────────────────
     setMovementReturnCode_t safetyCheck();
+    bool hasSafetyTriggered() const { return safetyTriggered_; }
 
     // ── Calibration ───────────────────────────────────────────────────────────
     void applyCalibration();
@@ -139,8 +140,9 @@ class RobotMTR : public Robot {
     double parallel_ratio = 1.0;    //!< Joint-2 parallelogram transmission ratio
 
     // Drive envelope — loaded from MTR_params.yaml
-    double dqMax  = 200.0 * M_PI / 180.0;   //!< Max joint speed  [rad/s] (therapy: 200 deg/s)
-    double tauMax =  1.37;                   //!< Max joint torque [N·m]   (therapy: motor peak 12A × 0.114)
+    double dqMax       = 200.0 * M_PI / 180.0;   //!< Max joint speed  [rad/s] (therapy: 200 deg/s)
+    double tauMax      =  1.37;                   //!< Max joint torque [N·m]   (therapy: motor peak 12A × 0.114)
+    double tauSafetyMax = 2.74;                   //!< Measured-torque e-stop [N·m]; checked post-calibration only
 
     // Per-joint drive parameters (index 0 = proximal, index 1 = distal)
     std::vector<double> iPeakDrives  = { 2.7,  2.7};   //!< Motor rated current [A] (0.319 N·m / 0.114 N·m/A)
@@ -167,6 +169,7 @@ class RobotMTR : public Robot {
 
     bool calibrated      = false;
     int  calibGraceCycles_ = 0;   // skip position limits for N cycles after applyCalibration()
+    bool safetyTriggered_ = false; // true while robot is disabled due to a safety event
 
     // ── Safety envelope ───────────────────────────────────────────────────────
     double maxEndEffVel   = 2.0;    //!< Max end-effector speed      [m/s]

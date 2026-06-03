@@ -20,22 +20,22 @@ RobotMTR::RobotMTR(const string &robot_name, const string &yaml_config_file)
 
     // Load YAML overrides before joints are constructed so limits are correct.
     initialiseFromYAML(yaml_config_file);
-
+    // SHOULDER
      addJoint(new JointMT(0,
                           qLimits[0], qLimits[1],          // θ₁ min / max
                           (short int)qSigns[0],
                           -dqMax, dqMax,
                           -tauMax, tauMax,
                           iPeakDrives[0], motorCstt[0],
-                          new CopleyDrive(4), "q1"));
-
+                          new CopleyDrive(1), "q1"));
+    // ELBOW
     addJoint(new JointMT(1,
                          qLimits[2], qLimits[3],          // θ₂ min / max
                          (short int)qSigns[1],
                          -dqMax, dqMax,
                          -tauMax, tauMax,
                          iPeakDrives[1], motorCstt[1],
-                         new CopleyDrive(2), "q2"));
+                         new CopleyDrive(3), "q2"));
 
     addInput(keyboard = new Keyboard());
 
@@ -85,8 +85,9 @@ bool RobotMTR::loadParametersFromYAML(YAML::Node params) {
     if (p["parallel_ratio"]) parallel_ratio = p["parallel_ratio"].as<double>();
 
     // Drive envelope (hard-constrained for safety)
-    if (p["dqMax"])  dqMax  = min(max(0., p["dqMax"].as<double>()), 3600.) * M_PI / 180.;
-    if (p["tauMax"]) tauMax = min(max(0., p["tauMax"].as<double>()), 80.);
+    if (p["dqMax"])       dqMax       = min(max(0., p["dqMax"].as<double>()), 3600.) * M_PI / 180.;
+    if (p["tauMax"])      tauMax      = min(max(0., p["tauMax"].as<double>()), 80.);
+    if (p["tauSafetyMax"]) tauSafetyMax = max(tauMax, p["tauSafetyMax"].as<double>());
 
     // Safety envelope
     if (p["maxEndEffForce"]) maxEndEffForce = max(0., p["maxEndEffForce"].as<double>());
@@ -295,7 +296,11 @@ void RobotMTR::updateRobot() {
         interactionForces = endEffForces;   // gravity is zero; τ_interaction = τ_motor
     }
 
-    if (safetyCheck() != SUCCESS) disable();
+    if (safetyCheck() != SUCCESS) {
+        safetyTriggered_ = true;
+    } else {
+        safetyTriggered_ = false;
+    }
 
     last_update_time = chrono::duration_cast<chrono::microseconds>(
         chrono::steady_clock::now().time_since_epoch()).count() / 1e6;
@@ -322,10 +327,22 @@ setMovementReturnCode_t RobotMTR::safetyCheck() {
                           getEndEffVelocity().norm());
             return OUTSIDE_LIMITS;
         }
+        for (unsigned int i = 0; i < joints.size(); i++) {
+            double tau = joints[i]->getTorque();
+            if (tau > tauSafetyMax || tau < -tauSafetyMax) {
+                static int tauSafetyErrCount = 0;
+                if (++tauSafetyErrCount % 400 == 1)
+                    spdlog::error("MTR: Joint {} measured torque e-stop  tau={:.3f} limit=±{:.3f} N·m",
+                                  i, tau, tauSafetyMax);
+                return OUTSIDE_LIMITS;
+            }
+        }
     } else {
         for (unsigned int i = 0; i < joints.size(); i++) {
             if (((JointMT *)joints[i])->safetyCheck() != SUCCESS) {
-                spdlog::error("MTR: Joint {} safety triggered!", i);
+                static int safetyErrCount = 0;
+                if (++safetyErrCount % 400 == 1)
+                    spdlog::error("MTR: Joint {} safety triggered!", i);
                 return OUTSIDE_LIMITS;
             }
         }

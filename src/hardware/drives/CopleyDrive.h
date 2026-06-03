@@ -156,5 +156,8 @@ class CopleyDrive : public Drive {
      * \return false if not
      */
     bool setFaultMask(UNSIGNED32 mask);
+
+   private:
+    bool wiggleDone_ = false;  // prevents wiggle from re-running after first DoNothing entry
 };
 #endif
