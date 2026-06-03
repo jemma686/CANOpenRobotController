@@ -40,69 +40,71 @@ RobotMTR:
   parallel_ratio: 1.0
 
   # ── Drive envelope ────────────────────────────────────────────────────────────
-  # dqMax — joint velocity safety limit [deg/s].
+  # dqMax — JOINT velocity safety limit [deg/s at the joint output shaft].
+  #   JointMT divides drive velocity by reductionRatio=15, so 200 deg/s at the joint
+  #   = 3000 deg/s (500 rpm) at the motor — well within Maxon EC60 rated speed.
   #   Only enforced when NOT calibrated (pre-calibration safety check).
-  #   After calibration, end-effector velocity (2.0 m/s, hardcoded) is the active limit.
-  #   For free-shaft bench testing this was 700 (observed ~600 deg/s in free spin).
-  dqMax:  200        # [deg/s]
+  #   After calibration the end-effector velocity limit (2.0 m/s, hardcoded) is active.
+  dqMax:  200        # [deg/s at joint]
 
-  # tauMax — joint torque command cap [N·m].
-  #   Applied in setTorque() (commands rejected above this) and setEndEffForceWithCompensation()
-  #   (joints clamped to ±tauMax before commanding).
-  #   NOT a calibrated-mode safety trigger — that uses end-effector velocity and position limits.
-  #
-  #   Motor rated torque:   0.319 N·m  (nameplate — confirmed via 0x6076 readback)
-  #   Motor rated current:  0.319 / 0.114 = 2.80 A
-  #   Copley ±3200 per-mille range → max commandable = 3.2 × 0.319 = 1.02 N·m (8.9 A)
-  #   WARNING: sustained commands above ~0.319 N·m (rated) will overheat the motor.
-  #   0.4 N·m (125 % of rated) is acceptable for brief bench tests; use ≤ 0.319 for therapy.
-  # Status: BENCH TEST value — reduce to 0.319 or below for sustained therapy operation.
-  tauMax:  1.0
+  # tauMax — JOINT torque command cap [N·m at the joint output shaft].
+  #   JointMT applies reductionRatio=15, so ALL torque values here are joint torques:
+  #     Motor rated torque:    0.319 N·m  (nameplate — VERIFIED via 0x6076 readback)
+  #     Joint rated torque:    0.319 × 15 = 4.785 N·m
+  #   Current value 3.0 N·m joint = 0.2 N·m motor = 63% motor rated — safe for testing.
+  #   Can raise toward 4.785 N·m joint (= 0.319 N·m motor rated) for more force;
+  #   do not exceed 4.785 N·m joint in sustained therapy (overheats motor above that).
+  #   Applied in JointMT::setTorque() and setEndEffForceWithCompensation() (saturation).
+  tauMax:  3.0       # [N·m at joint]
 
-  # tauSafetyMax — measured-torque emergency-stop threshold [N·m].
+  # tauSafetyMax — measured JOINT torque emergency-stop threshold [N·m at joint].
   #   Applied ONLY after calibration (so wake-and-wiggle phasing current never trips it).
-  #   Must be > tauMax. 0.8 N·m = 2 × tauMax catches genuine runaway without
-  #   false-tripping on brief therapy contact forces.
-  tauSafetyMax: 0.9
+  #   Must be strictly > tauMax. 6.0 = 2 × tauMax = 0.4 N·m motor — catches genuine
+  #   runaway without false-tripping normal impedance commands.
+  tauSafetyMax: 6.0  # [N·m at joint] — must be > tauMax
 
   # ── Per-joint drive parameters ────────────────────────────────────────────────
-  # Status: VERIFIED — 0x6076 (Motor Rated Torque) = 319 mN·m is the correct nameplate value
-  #   for the Maxon EC60 motors fitted. Rated current = 319/114 = 2.798 A, confirming
-  #   iPeakDrives = 2.7 A. No CME2 change is needed; 0x6076 is correctly configured.
-  #   NOTE: 6.0 A is the Copley ACK-055-06 drive's own continuous output rating —
-  #   it is NOT the motor's rated current. Commanding sustained torque above 0.319 N·m
-  #   runs the motor above its thermal limit.
-  iPeakDrives:  [2.795, 2.795]   # Motor rated current: 0.319 N·m / 0.114 N·m/A = 2.80 A
-  motorCstt:    [0.114, 0.114]   # Maxon EC60 Kt [N·m/A]
+  # Status: VERIFIED — 0x6076 (Motor Rated Torque) = 319 mN·m confirmed on hardware.
+  #   Rated current = 0.319 N·m / 0.114 N·m/A = 2.795 A (nameplate).
+  #   NOTE: 6.0 A is the Copley ACK-055-06 drive's continuous output ceiling —
+  #   NOT the motor rated current. Sustained motor torque > 0.319 N·m overheats the motor.
+  iPeakDrives:  [2.795, 2.795]   # Maxon EC60 rated current [A]
+  motorCstt:    [0.114, 0.114]   # Maxon EC60 torque constant Kt [N·m/A]
 
-  # Status: VERIFIED — qSigns confirmed correct direction during motor spin tests.
-  qSigns:       [1, 1]           # +1 = positive torque → increasing joint angle
+  # Status: VERIFIED — confirmed correct directions during motor spin tests.
+  #   Joint 0 (shoulder): sign=-1 — positive joint torque cmd → positive joint angle change → drives to θ₁_max
+  #   Joint 1 (elbow):    sign=+1 — positive joint torque cmd → drives toward θ₂_min (more negative)
+  qSigns:       [-1, 1]
 
   # ── Joint limits ──────────────────────────────────────────────────────────────
   # Status: MUST VERIFY — these are design values from system modelling.
   #   Confirm actual mechanical limits by commanding motion toward each stop.
   # Format: [θ1_min, θ1_max, θ2_min, θ2_max] in degrees
-  qLimits: [-30, 100, -160, -30]
+  # Limits are set 2° beyond the physical hard stops so encoder noise while the arm
+  # sits against a stop does not immediately trigger the e-stop. JointMT torque
+  # clipping and the mechanical stops prevent the arm exceeding the true stop angle.
+  qLimits: [-32, 102, -162, -28]
 
   # ── Calibration ───────────────────────────────────────────────────────────────
-  # Status: MUST VERIFY — read raw encoder angles from Copley drive at each hard stop
-  #   (PCAN-View / candump SDO read of 0x6064) and replace these values.
-  #   CalibState drives both joints with positive torque until motion stops then applies
-  #   these as the known positions. Wrong values corrupt ALL kinematic and force control.
+  # Status: MUST VERIFY — these are the KNOWN joint angles at each mechanical hard stop.
+  #   Procedure: physically measure the true joint angle at each stop from robot geometry,
+  #   or run CalibState and verify the arm position matches expected geometry at completion.
+  #   NOTE: The q=[...] printout during CalibState shows PRE-calibration raw encoder values
+  #   relative to power-on position — those numbers do NOT directly give the stop angle.
+  #   Wrong qCalibration values corrupt ALL kinematics and force control.
   # Format: [θ₁_stop_deg, θ₂_stop_deg]
-  #   Joint 0 (shoulder): scale=+1.2 → positive torque → drives to θ₁_max = +100°
-  #   Joint 1 (elbow):    scale=-1.0 → negative torque → drives to θ₂_min = −160°
-  qCalibration: [100, -160]   # [θ₁_max_stop, θ₂_min_stop] — MUST VERIFY on hardware
+  #   Joint 0 (shoulder): CalibState scale[0]=+1.3 drives to θ₁_max hard stop
+  #   Joint 1 (elbow):    CalibState scale[1]=+1.0 drives to θ₂_min hard stop
+  qCalibration: [100, -160]   # [θ₁_max_stop, θ₂_min_stop] in degrees — MUST VERIFY on hardware
 
   # ── Friction model ────────────────────────────────────────────────────────────
   # Status: ESTIMATE — replace after system identification.
-  #   Coulomb 0.5 N·m = 73% of rated motor torque per joint. This is very aggressive
-  #   and will dominate force commands until identified properly.
+  #   All values here are in JOINT N·m (reductionRatio=15 applied in JointMT).
   #   Set both to 0.0 for initial therapy testing; add back after measuring on hardware.
   # Applied in setEndEffForceWithCompensation():
   #   τ_fric = frictionCoul × sign(dq) + frictionVis × dq   (gated by 0.03 rad/s deadband)
-  frictionVis:  [0.0, 0.0]    # Viscous  [N·m·s/rad] — zeroed until system ID
-  frictionCoul: [0.0, 0.0]    # Coulomb  [N·m]       — zeroed until system ID
+  frictionVis:  [0.0, 0.0]    # Viscous  [N·m·s/rad at joint] — zeroed until system ID
+  frictionCoul: [0.0, 0.0]    # Coulomb  [N·m at joint]       — zeroed until system ID
 
   # ── Safety envelope ──────────────────────────────────────────────────────────
   # Status: VERIFIED reasonable — motors physically cannot produce 20 N at end-effector

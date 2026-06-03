@@ -36,10 +36,11 @@
  *
  * Drive hardware
  * ──────────────
- *   2 × Copley ACK-055-06 drives on CAN bus (node IDs 2 and 4), each driving a
- *   Maxon EC60 BLDC motor.  JointMT objects translate N·m ↔ DS402 torque units.
- *   MUST VERIFY: read 0x6076 (Motor Rated Torque) from each drive; must equal
- *   684 mN·m (= Ipeak × Kt = 6.0 A × 0.114 N·m/A). Reconfigure in CME2 if not.
+ *   2 × Copley ACK-055-06 drives on CAN bus (node IDs 1 and 3), each driving a
+ *   Maxon EC60 BLDC motor through a 1:15 gearbox.
+ *   VERIFIED: 0x6076 (Motor Rated Torque) = 319 mN·m = 2.795 A × 0.114 N·m/A.
+ *   JointMT applies reductionRatio=15 so all joint-level values are in output-shaft
+ *   units: positions [rad], velocities [rad/s], torques [N·m at joint].
  *
  * Workspace joint limits (System Modelling/ROM (1).m, accelCalc (1).m)
  * ────────────────────────────────────────────────────────────────────
@@ -139,15 +140,15 @@ class RobotMTR : public Robot {
     double L2             = 0.37;   //!< Distal   link [m]  (MUST VERIFY)
     double parallel_ratio = 1.0;    //!< Joint-2 parallelogram transmission ratio
 
-    // Drive envelope — loaded from MTR_params.yaml
-    double dqMax       = 200.0 * M_PI / 180.0;   //!< Max joint speed  [rad/s] (therapy: 200 deg/s)
-    double tauMax      =  1.37;                   //!< Max joint torque [N·m]   (therapy: motor peak 12A × 0.114)
-    double tauSafetyMax = 2.74;                   //!< Measured-torque e-stop [N·m]; checked post-calibration only
+    // Drive envelope — loaded from MTR_params.yaml (these are YAML defaults; YAML overrides at runtime)
+    double dqMax        = 200.0 * M_PI / 180.0;  //!< Max JOINT speed  [rad/s] (200 deg/s joint = 3000 deg/s motor)
+    double tauMax       =   3.0;                  //!< Max JOINT torque [N·m]   (3.0 N·m joint = 0.2 N·m motor)
+    double tauSafetyMax =   6.0;                  //!< Measured-torque e-stop [N·m joint]; must be > tauMax
 
-    // Per-joint drive parameters (index 0 = proximal, index 1 = distal)
-    std::vector<double> iPeakDrives  = { 2.7,  2.7};   //!< Motor rated current [A] (0.319 N·m / 0.114 N·m/A)
-    std::vector<double> motorCstt    = {0.114, 0.114};  //!< Maxon EC60 torque constant [N·m/A]
-    std::vector<double> qSigns       = { 1.0,  -1.0};   //!< Sign correction (CW/CCW)
+    // Per-joint drive parameters (index 0 = proximal/shoulder, index 1 = distal/elbow)
+    std::vector<double> iPeakDrives  = {2.795, 2.795};  //!< Maxon EC60 rated current [A]  (VERIFIED)
+    std::vector<double> motorCstt    = {0.114, 0.114};  //!< Maxon EC60 torque constant Kt [N·m/A]
+    std::vector<double> qSigns       = {-1.0,   1.0};   //!< Sign correction (VERIFIED from spin tests)
 
     // Friction model — zero until system identification; see MTR_params.yaml
     std::vector<double> frictionVis  = {0.0, 0.0};   //!< Viscous  [N·m·s/rad]
@@ -159,12 +160,11 @@ class RobotMTR : public Robot {
        -160.0 * M_PI / 180.0,    -30.0 * M_PI / 180.0    // θ₂ ∈ [−160°, −30°]
     };
 
-    // TO DO: verify these against the physical robot before CalibState is used.
-    //   Read raw encoder angles via SDO 0x6064 at each hard stop and replace.
-    //   qCalibration[0] = θ₁ at stop,  qCalibration[1] = θ₂ at stop.
+    // MUST VERIFY against physical robot — measure true joint angles at each hard stop.
+    // Joint 0 stops at θ₁_max; joint 1 stops at θ₂_min (see MTR_params.yaml for procedure).
     VM2 qCalibration = {
-         100.0 * M_PI / 180.0,   // θ₁_max stop — MUST VERIFY
-         -30.0 * M_PI / 180.0    // θ₂_max stop (least-flexed position) — MUST VERIFY
+         100.0 * M_PI / 180.0,   // θ₁_max hard stop [rad] — overridden by YAML
+        -160.0 * M_PI / 180.0    // θ₂_min hard stop [rad] — overridden by YAML
     };
 
     bool calibrated      = false;

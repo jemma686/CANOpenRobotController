@@ -246,6 +246,7 @@ VM2 RobotMTR::directKinematic(VM2 q) {
 
 // ─── Jacobian ─────────────────────────────────────────────────────────────────
 // 2×2 planar Jacobian.  det(J) = L1·L2·sin(θ₂·r) — always non-zero in workspace.
+// getPosition() returns joint-space radians (reductionRatio=15 applied in JointMT).
 Matrix2d RobotMTR::J() {
     double t1  = joints[0]->getPosition();
     double t2  = (joints.size() > 1 ? joints[1]->getPosition() : 0.0) * parallel_ratio;
@@ -326,7 +327,7 @@ setMovementReturnCode_t RobotMTR::safetyCheck() {
             return OUTSIDE_LIMITS;
         }
         for (unsigned int i = 0; i < joints.size(); i++) {
-            double tau = joints[i]->getTorque();
+            double tau = joints[i]->getTorque();   // joint torque [N·m] — reductionRatio=15 applied
             if (tau > tauSafetyMax || tau < -tauSafetyMax) {
                 spdlog::error("MTR: Joint {} measured torque e-stop  tau={:.3f} limit=±{:.3f} N·m",
                               i, tau, tauSafetyMax);

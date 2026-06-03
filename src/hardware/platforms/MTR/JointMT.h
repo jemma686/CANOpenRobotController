@@ -34,17 +34,18 @@ class JointMT : public Joint {
     const short int sign;
     const double qMin, qMax, dqMin, dqMax, tauMin, tauMax;
 
-    // TO DO: verify the encoder counts
-    int encoderCounts = 8192;  //Encoder counts per turn, multiple of 4, potentially 4096
-    double reductionRatio = 15.0;  
+    // Maxon EC60 encoder: 8192 counts per motor revolution (verified on hardware).
+    int encoderCounts = 8192;
+    // 1:15 gearbox between motor shaft and joint output.
+    // All conversion functions divide/multiply by reductionRatio so that getPosition(),
+    // getVelocity(), getTorque() return joint-space values and setTorque() accepts
+    // joint torques and internally scales to motor torque.
+    double reductionRatio = 15.0;
 
-    // Torque scaling: 1000 drive units (DS402 0x6071) = Ipeak × Kt N·m = rated torque.
-    // MUST VERIFY: read 0x6076 (Motor Rated Torque) from drive flash via candump/cansend or
-    //   PCAN-View. It must equal Ipeak × Kt × 1000 mN·m = 684 mN·m. If the drives were
-    //   CME2-commissioned for a different robot, re-run CME2 to set 0x6076 = 684 mN·m.
-    
-    // TO DO: validate Ipeak
-    double Ipeak = 2.7;                  //!< ACK-055-06 continuous current [A] where it hits its thermal ceiling, limit to nominal (should be able to go above functionally)
+    // Torque scaling: 1000 drive units (DS402 0x6071) = Ipeak × Kt = rated motor torque.
+
+    // VERIFIED: 0x6076 = 319 mN·m = 2.795 A × 0.114 N·m/A. Joint rated = 319 mN·m × 15 = 4785 mN·m.
+    double Ipeak = 2.795;                //!< Maxon EC60 rated current [A]  (0.319 N·m / 0.114 N·m/A)
     double motorTorqueConstant = 0.114;  //!< Maxon EC60 torque constant [N·m/A]
 
     double driveUnitToJointPosition(int driveValue) { return sign * driveValue * (2. * M_PI) / (double)encoderCounts / reductionRatio; };
@@ -52,12 +53,12 @@ class JointMT : public Joint {
     double driveUnitToJointVelocity(int driveValue) { return sign * driveValue * (2. * M_PI) / 60. / 512. / (double)encoderCounts * 1875 / reductionRatio; };
     int jointVelocityToDriveUnit(double jointValue) { return sign * jointValue / (2. * M_PI) * 60. * 512. * (double)encoderCounts / 1875 * reductionRatio; };
     
-    // TO DO: Double check these conversions please!
+    // Torque conversion verified: 1000 units → Ipeak × Kt × reductionRatio = 4.785 N·m joint rated.
     double driveUnitToJointTorque(int driveValue) { return sign * driveValue / 1000.0 * motorTorqueConstant * Ipeak * reductionRatio; };
     int jointTorqueToDriveUnit(double jointValue) { return (int)(sign * jointValue / (motorTorqueConstant * Ipeak) * 1000.0 / reductionRatio); };
 
    public:
-    JointMT(int jointID, double q_min, double q_max, short int sign_ = 1, double dq_min = 0, double dq_max = 0, double tau_min = 0, double tau_max = 0, double ipeak = 6.0, double motor_kt = 0.114, Drive *drive = NULL, const std::string& name="");
+    JointMT(int jointID, double q_min, double q_max, short int sign_ = 1, double dq_min = 0, double dq_max = 0, double tau_min = 0, double tau_max = 0, double ipeak = 2.795, double motor_kt = 0.114, Drive *drive = NULL, const std::string& name="");
     ~JointMT();
     /**
      * \brief Check if current velocity and torque are within limits.
