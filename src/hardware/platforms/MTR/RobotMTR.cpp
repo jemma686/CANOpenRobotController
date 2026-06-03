@@ -297,9 +297,7 @@ void RobotMTR::updateRobot() {
     }
 
     if (safetyCheck() != SUCCESS) {
-        safetyTriggered_ = true;
-    } else {
-        safetyTriggered_ = false;
+        disable();
     }
 
     last_update_time = chrono::duration_cast<chrono::microseconds>(
@@ -330,19 +328,15 @@ setMovementReturnCode_t RobotMTR::safetyCheck() {
         for (unsigned int i = 0; i < joints.size(); i++) {
             double tau = joints[i]->getTorque();
             if (tau > tauSafetyMax || tau < -tauSafetyMax) {
-                static int tauSafetyErrCount = 0;
-                if (++tauSafetyErrCount % 400 == 1)
-                    spdlog::error("MTR: Joint {} measured torque e-stop  tau={:.3f} limit=±{:.3f} N·m",
-                                  i, tau, tauSafetyMax);
+                spdlog::error("MTR: Joint {} measured torque e-stop  tau={:.3f} limit=±{:.3f} N·m",
+                              i, tau, tauSafetyMax);
                 return OUTSIDE_LIMITS;
             }
         }
     } else {
         for (unsigned int i = 0; i < joints.size(); i++) {
             if (((JointMT *)joints[i])->safetyCheck() != SUCCESS) {
-                static int safetyErrCount = 0;
-                if (++safetyErrCount % 400 == 1)
-                    spdlog::error("MTR: Joint {} safety triggered!", i);
+                spdlog::error("MTR: Joint {} safety triggered!", i);
                 return OUTSIDE_LIMITS;
             }
         }

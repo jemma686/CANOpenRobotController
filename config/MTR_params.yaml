@@ -57,7 +57,7 @@ RobotMTR:
   #   WARNING: sustained commands above ~0.319 N·m (rated) will overheat the motor.
   #   0.4 N·m (125 % of rated) is acceptable for brief bench tests; use ≤ 0.319 for therapy.
   # Status: BENCH TEST value — reduce to 0.319 or below for sustained therapy operation.
-  tauMax:  0.4
+  tauMax:  0.6
 
   # tauSafetyMax — measured-torque emergency-stop threshold [N·m].
   #   Applied ONLY after calibration (so wake-and-wiggle phasing current never trips it).
